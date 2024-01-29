@@ -87,7 +87,7 @@ let string_of_symbol prefix s =
           escape prefix should be used in this case, if this ever causes
           problems in the real world. *)
        if is_special_char c then
-         Printf.bprintf b "$%02x" (Char.code c)
+         Printf.bprintf b "$%03d" (Char.code c)
        else
          Buffer.add_char b c
       )

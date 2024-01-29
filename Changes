@@ -51,6 +51,12 @@ Working version
 
 ### Code generation and optimizations:
 
+* #13050: change mangling of OCaml long identifiers
+  from `camlModule.name_NNN` to `camlModule$name_NNN`. The previous
+  mangling schema, using `.`, conflicted with LLDB on macOS and MASM in
+  the MSVC port. Mangled names are now consistent across all ports.
+  (Tim McGilchrist, reviewed by Miod Vallat and Hugo Heuzard)
+
 ### Standard library:
 
 ### Other libraries:
