@@ -145,14 +145,15 @@ jobs:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - name: linux-O0
             os: ubuntu-latest
             config_arg: CFLAGS='-O0'
-          - name: macos-13
+          - name: macos-x86_64
             os: macos-14-large
-          - name: macos-14
+          - name: macos-arm64
             os: macos-14
     steps:
       - name: Checkout
