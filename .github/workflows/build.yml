@@ -37,7 +37,7 @@ jobs:
       manual_changed: ${{ steps.manual.outputs.manual_changed }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
       - name: Check for manual changes
@@ -156,7 +156,7 @@ jobs:
             os: macos-14
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
       - name: OS Dependencies
@@ -193,8 +193,7 @@ jobs:
           apt-get update
           apt-get install -y git gcc make parallel
       - name: Checkout
-        # See https://github.com/actions/checkout/issues/334
-        uses: actions/checkout@v1
+        uses: actions/checkout@v4
       - name: configure tree
         run: |
           MAKE_ARG=-j bash -xe tools/ci/actions/runner.sh configure
