@@ -152,6 +152,8 @@ jobs:
             config_arg: CFLAGS='-O0'
           - name: macos
             os: macos-14
+          - name: macos
+            os: macos-14-large
     steps:
       - name: Checkout
         uses: actions/checkout@v3
