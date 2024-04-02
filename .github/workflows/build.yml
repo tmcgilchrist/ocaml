@@ -193,7 +193,7 @@ jobs:
           apt-get update
           apt-get install -y git gcc make parallel
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v1
       - name: configure tree
         run: |
           MAKE_ARG=-j bash -xe tools/ci/actions/runner.sh configure
