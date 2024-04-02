@@ -639,6 +639,8 @@ END_FUNCTION(caml_c_call_stack_args)
 
 FUNCTION(caml_start_program)
         CFI_STARTPROC
+        CFI_SIGNAL_FRAME
+
 #if defined(WITH_THREAD_SANITIZER)
         str     x0, [sp, -16]!
         CFI_ADJUST(16)
@@ -653,6 +655,7 @@ FUNCTION(caml_start_program)
 #endif
     /* domain state is passed as arg from C */
         mov     TMP, C_ARG_1
+    /* Initial entry point is G(caml_program) */
         ADDRGLOBAL(TMP2, caml_program)
 
 /* Code shared with caml_callback* */
@@ -662,10 +665,9 @@ FUNCTION(caml_start_program)
 
 L(jump_to_caml):
     /* Set up stack frame and save callee-save registers */
+        stp     x29, x30, [sp, -160]!
         CFI_OFFSET(29, -160)
         CFI_OFFSET(30, -152)
-        stp     x29, x30, [sp, -160]!
-        CFI_ADJUST(160)
         add     x29, sp, #0
         stp     x19, x20, [sp, 16]
         stp     x21, x22, [sp, 32]
@@ -676,6 +678,8 @@ L(jump_to_caml):
         stp     d10, d11, [sp, 112]
         stp     d12, d13, [sp, 128]
         stp     d14, d15, [sp, 144]
+        CFI_ADJUST(160)
+
     /* Load domain state pointer from argument */
         mov     DOMAIN_STATE_PTR, TMP
     /* Reload allocation pointer */
