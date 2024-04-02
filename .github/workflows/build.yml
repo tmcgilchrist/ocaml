@@ -160,7 +160,7 @@ jobs:
         with:
           persist-credentials: false
       - name: OS Dependencies
-        if: ${{startsWith(matrix.os, 'macos')}}
+        if: ${{ startsWith(matrix.os, 'macos') }}
         run: brew install parallel
       - name: configure tree
         run: |
