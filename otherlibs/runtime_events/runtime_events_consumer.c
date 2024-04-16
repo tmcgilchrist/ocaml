@@ -174,9 +174,9 @@ cursor_map_ring_file(struct caml_runtime_events_cursor *cursor,
   return E_SUCCESS;
 
  failed2:
-  CloseHandle(cursor->ring_file_handle);
- failed1:
   CloseHandle(cursor->ring_handle);
+ failed1:
+  CloseHandle(cursor->ring_file_handle);
   return ret;
 #else
 #if defined(__ARM_ARCH) && __ARM_ARCH <= 5
