@@ -1,0 +1,65 @@
+(lldb) target create "XXXX"
+Current executable set to 'XXXX' $ARCH.
+(lldb) command source -s 0 'XXXX'
+Executing commands in 'XXXX'.
+(lldb) command script import ./lldb_test.py
+(lldb) create camlFib.main_*
+Breakpoint created for regex camlFib.main_*.
+(lldb) create camlFib.fib_*
+Breakpoint created for regex camlFib.fib_*.
+(lldb) run
+warning: This version of LLDB has no plugin for the language "assembler". Inspection of frame variables will be limited.
+Process XXXX stopped
+* thread #1, name = 'XXXX', stop reason = breakpoint 1.1
+    frame #0: 0x00000000000000 fib`camlFib.main_272 at fib.ml:9:10
+   6   	
+   7   	let[@inline never] main () =
+   8   	  let a = 5 in
+-> 9   	  let r = fib a in
+    	         ^
+   10  	  Printf.printf "fib(%d) = %d" a r
+   11  	
+   12  	let _ = main ()
+Process XXXX launched: 'XXXX' $ARCH
+(lldb) backtrace
+frame 0: fib`camlFib.main_272
+frame 1: fib`camlFib.entry
+frame 2: fib`caml_program
+frame 3: fib`caml_start_program
+frame 4: fib`caml_startup_common
+frame 5: fib`caml_startup_common
+frame 6: fib`caml_startup_exn
+frame 7: fib`caml_startup
+frame 8: fib`caml_main
+frame 9: fib`main
+frame 10: libc.so.6`__libc_start_call_main
+frame 11: libc.so.6`__libc_start_main_impl
+frame 12: fib`_start
+(lldb) continue
+Process XXXX resuming
+Process XXXX stopped
+* thread #1, name = 'XXXX', stop reason = breakpoint 2.1
+    frame #0: 0x00000000000000 fib`camlFib.fib_270 at fib.ml:5:23
+   2   	let[@inline never] rec fib n =
+   3   	  if n = 0 then 0
+   4   	  else if n = 1 then 1
+-> 5   	  else fib (n-1) + fib (n-2)
+    	                      ^
+   6   	
+   7   	let[@inline never] main () =
+   8   	  let a = 5 in
+(lldb) backtrace
+frame 0: fib`camlFib.fib_270
+frame 1: fib`camlFib.main_272
+frame 2: fib`camlFib.entry
+frame 3: fib`caml_program
+frame 4: fib`caml_start_program
+frame 5: fib`caml_startup_common
+frame 6: fib`caml_startup_common
+frame 7: fib`caml_startup_exn
+frame 8: fib`caml_startup
+frame 9: fib`caml_main
+frame 10: fib`main
+frame 11: libc.so.6`__libc_start_call_main
+frame 12: libc.so.6`__libc_start_main_impl
+frame 13: fib`_start

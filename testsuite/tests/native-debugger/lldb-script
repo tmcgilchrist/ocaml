@@ -1,0 +1,7 @@
+command script import ./lldb_test.py
+create camlFib.main_*
+create camlFib.fib_*
+run
+backtrace
+continue
+backtrace
