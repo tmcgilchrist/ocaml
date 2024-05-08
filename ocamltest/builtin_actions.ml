@@ -139,6 +139,15 @@ let not_bsd = make
     "not on a BSD system"
     "on a BSD system")
 
+let linux_system = "linux"
+
+let linux = make
+  ~name:"linux"
+  ~description:"Pass if running on a Linux system"
+  (Actions_helpers.pass_or_skip (Ocamltest_config.system = linux_system)
+    "on a Linux system"
+    "not on a Linux system")
+
 let macos_system = "macosx"
 
 let macos = make
@@ -368,6 +377,7 @@ let _ =
     not_bsd;
     macos;
     not_macos_amd64_tsan;
+    linux;
     arch32;
     arch64;
     has_symlink;

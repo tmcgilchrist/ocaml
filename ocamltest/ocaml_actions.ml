@@ -582,11 +582,11 @@ let debug debugger_type log env =
   if exit_status=expected_exit_status
   then (Result.pass, env)
   else begin
-      let reason =
-        (Actions_helpers.mkreason
-           what (String.concat " " commandline) exit_status) in
-      (Result.fail_with_reason reason, env)
-    end
+    let reason =
+      (Actions_helpers.mkreason
+         what (String.concat " " commandline) exit_status) in
+    (Result.fail_with_reason reason, env)
+  end
 
 let ocamldebug =
   Actions.make ~name:"ocamldebug" ~description:"Run ocamldebug on the program" (debug Bytecode)
@@ -1225,14 +1225,6 @@ let debugger = Actions.make
   (Actions_helpers.pass_or_skip Ocamltest_config.ocamldebug
      "debugger available"
      "debugger not available")
-
-(* TODO Convert shell script to use this? *)
-(* let lldb = Actions.make *)
-(*   ~name:"lldb" *)
-(*   ~description:"Passes if the debugger is available" *)
-(*   (Actions_helpers.pass_or_skip Ocamltest_config.lldb *)
-(*      "lldb available" *)
-(*      "lldb not available") *)
 
 let instrumented_runtime = make
   ~name:"instrumented-runtime"

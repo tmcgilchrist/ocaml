@@ -1,0 +1,54 @@
+(lldb) target create "XXXX"
+Current executable set to 'XXXX' ($ARCH).
+(lldb) command source -s 0 'XXXX'
+Executing commands in 'XXXX'.
+(lldb) command script import ./lldb_test.py
+(lldb) create camlFib.main_*
+Breakpoint created for regex camlFib.main_*.
+(lldb) create camlFib.fib_*
+Breakpoint created for regex camlFib.fib_*.
+(lldb) run
+Process XXXX stopped
+* thread #1, queue = 'XXXX', stop reason = breakpoint 1.1
+    frame #0: 0x00000000000000 fib`camlFib.main_272
+fib`camlFib.main_272:
+->  0x00000000000000 <+0>:  ldr    x16, [x28, #0x28]
+    0x00000000000000 <+4>:  add    x16, x16, #0x158
+    0x00000000000000 <+8>:  cmp    sp, x16
+    0x00000000000000 <+12>: b.lo   0x00000000000000               ; camlFib.fib_270 + 128
+Target 0: (fib) stopped.
+Process XXXX launched: 'XXXX' ($ARCH)
+(lldb) backtrace
+frame 0: fib`camlFib.main_272
+frame 1: fib`camlFib.entry
+frame 2: fib`caml_program
+frame 3: fib`caml_start_program
+frame 4: fib`caml_startup_common
+frame 5: fib`caml_startup_exn
+frame 6: fib`caml_startup
+frame 7: fib`caml_main
+frame 8: fib`main
+frame 9: dyld`start
+(lldb) continue
+Process XXXX resuming
+Process XXXX stopped
+* thread #1, queue = 'XXXX', stop reason = breakpoint 2.1
+    frame #0: 0x00000000000000 fib`camlFib.fib_270
+fib`camlFib.fib_270:
+->  0x00000000000000 <+0>:  ldr    x16, [x28, #0x28]
+    0x00000000000000 <+4>:  add    x16, x16, #0x158
+    0x00000000000000 <+8>:  cmp    sp, x16
+    0x00000000000000 <+12>: b.lo   0x00000000000000               ; camlFib.code_begin + 8
+Target 0: (fib) stopped.
+(lldb) backtrace
+frame 0: fib`camlFib.fib_270
+frame 1: fib`camlFib.main_272
+frame 2: fib`camlFib.entry
+frame 3: fib`caml_program
+frame 4: fib`caml_start_program
+frame 5: fib`caml_startup_common
+frame 6: fib`caml_startup_exn
+frame 7: fib`caml_startup
+frame 8: fib`caml_main
+frame 9: fib`main
+frame 10: dyld`start
