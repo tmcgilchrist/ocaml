@@ -36,7 +36,7 @@ val emit_debug_info: Debuginfo.t -> unit
 val emit_debug_info_gen :
   Debuginfo.t ->
   (file_num:int -> file_name:string -> unit) ->
-  (file_num:int -> line:int -> col:int -> unit) -> unit
+  (file_num:int -> file_name:string -> line:int -> col:int -> unit) -> unit
 
 type frame_debuginfo =
   | Dbg_alloc of Debuginfo.alloc_dbginfo

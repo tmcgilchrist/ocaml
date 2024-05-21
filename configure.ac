@@ -1639,7 +1639,7 @@ AS_CASE([$as_target,$ocaml_cc_vendor],
     [default_as="ml64 -nologo -Cp -c -Fo"
     default_aspp="$default_as"],
   [*-*-darwin*,clang-*],
-    [default_as="$default_as -Wno-trigraphs"
+    [default_as="$default_as -Wno-trigraphs -fdebug-compilation-dir=/Users/tsmc/projects/ocaml"
     default_aspp="$default_as"])
 
 AS_IF([test "$with_pic"],
