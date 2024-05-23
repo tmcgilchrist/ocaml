@@ -1,0 +1,3 @@
+break fib.ml:8
+set debuginfod enabled off
+quit
