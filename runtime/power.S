@@ -76,13 +76,13 @@
 .endm
 
 #if defined(FUNCTION_SECTIONS)
-        TEXT_SECTION caml_hot.code_begin
-        .globl caml_hot.code_begin
-caml_hot.code_begin:
+        TEXT_SECTION caml_hot$$code_begin
+        .globl caml_hot$$code_begin
+caml_hot$$code_begin:
 
-        TEXT_SECTION caml_hot.code_end
-        .globl caml_hot.code_end
-caml_hot.code_end:
+        TEXT_SECTION caml_hot$$code_end
+        .globl caml_hot$$code_end
+caml_hot$$code_end:
 #endif
 
 .macro FUNCTION name
@@ -1181,9 +1181,9 @@ caml_system__code_end:
 /* Frame table */
 
         .section ".data"
-        .globl  caml_system.frametable
-        .type   caml_system.frametable, @object
-caml_system.frametable:
+        .globl  caml_system$$frametable
+        .type   caml_system$$frametable, @object
+caml_system$$frametable:
         .quad   2               /* two descriptors */
         .quad   .Lcaml_retaddr + 4  /* return address into callback */
         .short  -1              /* negative frame size => use callback link */

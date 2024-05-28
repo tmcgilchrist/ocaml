@@ -53,7 +53,7 @@ val current_unit: unit -> Compilation_unit.t
 val current_unit_symbol: unit -> Symbol.t
         (* flambda-only *)
 
-val symbol_separator: char
+val symbol_separator: string
         (* Return the module separator used when building symbol names. *)
 
 val make_symbol: ?unitname:string -> string option -> string

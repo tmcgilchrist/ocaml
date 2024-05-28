@@ -47,13 +47,13 @@
 #endif
 
 #if defined(FUNCTION_SECTIONS)
-        TEXT_SECTION(caml_hot.code_begin)
-        .globl caml_hot.code_begin
-caml_hot.code_begin:
+        TEXT_SECTION(caml_hot$$code_begin)
+        .globl caml_hot$$code_begin
+caml_hot$$code_begin:
 
-        TEXT_SECTION(caml_hot.code_end)
-        .globl caml_hot.code_end
-caml_hot.code_end:
+        TEXT_SECTION(caml_hot$$code_end)
+        .globl caml_hot$$code_end
+caml_hot$$code_end:
 #endif
 
 #define FUNCTION(name) \
@@ -1200,9 +1200,9 @@ caml_system__code_end:
 
         .section ".data"
         .align 8
-        .globl  caml_system.frametable
-        .type   caml_system.frametable, @object
-caml_system.frametable:
+        .globl  caml_system$$frametable
+        .type   caml_system$$frametable, @object
+caml_system$$frametable:
         .quad   2               /* two descriptors */
         .quad   LBL(caml_retaddr)  /* return address into callback */
         .short  -1              /* negative size count => use callback link */

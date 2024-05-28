@@ -50,13 +50,13 @@
 #endif
 
 #if defined(FUNCTION_SECTIONS)
-        TEXT_SECTION(caml_hot.code_begin)
-        .globl caml_hot.code_begin
-caml_hot.code_begin:
+        TEXT_SECTION(caml_hot$$code_begin)
+        .globl caml_hot$$code_begin
+caml_hot$$code_begin:
 
-        TEXT_SECTION(caml_hot.code_end)
-        .globl caml_hot.code_end
-caml_hot.code_end:
+        TEXT_SECTION(caml_hot$$code_end)
+        .globl caml_hot$$code_end
+caml_hot$$code_end:
 #endif
 
 /* Globals and labels */
@@ -1198,9 +1198,9 @@ END_FUNCTION(caml_ml_array_bound_error)
         .globl  caml_system__code_end
 caml_system__code_end:
 
-/* GC roots for callback */
-
-OBJECT(caml_system.frametable)
+/* Frametable - GC roots for callback */
+/* Uses the same naming convention as ocamlopt generated modules. */
+OBJECT(caml_system$$frametable)
         .quad   2                 /* two descriptors */
         .quad   L(caml_retaddr)   /* return address into callback */
         .short  -1                /* negative frame size => use callback link */
@@ -1210,7 +1210,7 @@ OBJECT(caml_system.frametable)
         .short  -1                /* negative frame size => use callback link */
         .short  0                 /* no roots */
         .align  3
-END_OBJECT(caml_system.frametable)
+END_OBJECT(caml_system$$frametable)
 
 /* Mark stack as non-executable */
         .section .note.GNU-stack,"",%progbits

@@ -117,6 +117,12 @@ _______________
   (Vincent Laviron, review by Hugo Heuzard, Nathanaëlle Courant
    and Gabriel Scherer)
 
+* #13050: Use '$$' instead of '.' to separate module names in symbol names.
+  This changes name mangling of OCaml identifiers from `camlModule.name_NNN`
+  to `camlModule$$name_NNN`.
+  (Tim McGilchrist, with contributions from Xavier Leroy,
+   reviewed by Xavier Leroy, Miod Vallat and Hugo Heuzard)
+
 ### Standard library:
 
 - #12884: Add `Queue.drop`

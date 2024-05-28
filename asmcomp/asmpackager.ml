@@ -50,7 +50,7 @@ let read_member_info pack_path file = (
       if info.ui_name <> name
       then raise(Error(Illegal_renaming(name, file, info.ui_name)));
       let expected_symbol =
-        Printf.sprintf "%s%c%s"
+        Printf.sprintf "%s%s%s"
           (Compilenv.current_unit_infos()).ui_symbol Compilenv.symbol_separator
           info.ui_name
       in

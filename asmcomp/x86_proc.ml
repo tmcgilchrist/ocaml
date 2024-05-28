@@ -72,8 +72,8 @@ let string_of_string_literal s =
 
 let string_of_symbol prefix s =
   let is_special_char = function
-    | 'A'..'Z' | 'a'..'z' | '0'..'9' | '_' -> false
-    | c -> c <> Compilenv.symbol_separator
+    | 'A'..'Z' | 'a'..'z' | '0'..'9' | '_' | '$' -> false
+    | _ -> true
   in
   let spec = String.exists is_special_char s in
   if not spec then if prefix = "" then s else prefix ^ s
@@ -82,10 +82,6 @@ let string_of_symbol prefix s =
     Buffer.add_string b prefix;
     String.iter
       (fun c ->
-       (* FIXME: using $ to prefix escaped characters can make names
-          ambiguous if the symbol separator is also set to $; a different
-          escape prefix should be used in this case, if this ever causes
-          problems in the real world. *)
        if is_special_char c then
          Printf.bprintf b "$%02x" (Char.code c)
        else
