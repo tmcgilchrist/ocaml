@@ -178,6 +178,7 @@ jobs:
           OCAMLRUNPARAM: v=0,V=1
           USE_RUNTIME: d
         run: |
+          sudo DevToolsSecurity --enable
           for dir in $PARALLEL_TESTS; do \
            bash -cxe "SHOW_TIMINGS=1 tools/ci/actions/runner.sh test_prefix $dir"; \
           done
