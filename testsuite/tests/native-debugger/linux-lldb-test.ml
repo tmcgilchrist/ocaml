@@ -12,7 +12,8 @@
    ocamlopt.byte;
    debugger_script = "${test_source_directory}/lldb-script";
    lldb;
-   script = "sh ${test_source_directory}/sanitize.sh ${test_source_directory} ${test_build_directory} ${ocamltest_response} linux-lldb-test";
+   script = "sh ${test_source_directory}/sanitize.sh ${test_source_directory} \
+            ${test_build_directory} ${ocamltest_response} linux-lldb-test";
    script;
    check-program-output;
  *)
