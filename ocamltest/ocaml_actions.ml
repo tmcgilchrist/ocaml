@@ -590,10 +590,16 @@ let debug debugger_type log env =
   end
 
 let ocamldebug =
-  Actions.make ~name:"ocamldebug" ~description:"Run ocamldebug on the program" (debug Bytecode)
+  Actions.make ~name:"ocamldebug"
+    ~description:"Run ocamldebug on the program" (debug Bytecode)
 
-let lldb = Actions.make ~name:"lldb" ~description:"Run LLDB on the program" (debug LLDB)
-let gdb = Actions.make ~name:"gdb" ~description:"Run GDB on the program" (debug GDB)
+let lldb =
+  Actions.make ~name:"lldb"
+    ~description:"Run LLDB on the program" (debug LLDB)
+
+let gdb =
+  Actions.make ~name:"gdb"
+    ~description:"Run GDB on the program" (debug GDB)
 
 let objinfo log env =
   let tools_directory = Ocaml_directories.tools in

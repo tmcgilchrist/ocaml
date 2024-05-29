@@ -16,7 +16,7 @@
 
     # Replace debug process forked by lldb
     gsub("Process ([0-9]+)", "Process XXXX")
- 
+
     # Replace architecture identifiers
     gsub("\(x86_64\)", "$ARCH")
     gsub("\(arm64\)", "$ARCH")
