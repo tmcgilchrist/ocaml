@@ -161,7 +161,10 @@ jobs:
           persist-credentials: false
       - name: OS Dependencies
         if: runner.os == 'MacOS'
-        run: brew install parallel
+        run: |
+          brew install parallel
+          sudo DevToolsSecurity --enable
+
       - name: configure tree
         run: |
           CONFIG_ARG='${{ matrix.config_arg }}' MAKE_ARG=-j bash -xe tools/ci/actions/runner.sh configure
@@ -178,7 +181,6 @@ jobs:
           OCAMLRUNPARAM: v=0,V=1
           USE_RUNTIME: d
         run: |
-          sudo DevToolsSecurity --enable
           for dir in $PARALLEL_TESTS; do \
            bash -cxe "SHOW_TIMINGS=1 tools/ci/actions/runner.sh test_prefix $dir"; \
           done
