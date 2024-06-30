@@ -600,7 +600,7 @@ CFI_STARTPROC
     /* Common code for caml_start_program and caml_callback* */
 LBL(caml_start_program):
     /* Allocate stack frame */
-        lay     %r15, -RESERVED_STACK(%r15)
+        lay     %r15, -RESERVED_STACK(%r15) /* 160 */
     /* Save all callee-save registers + return address */
     /* GPR 6..14 at sp + 0 ... sp + 64
        FPR 10..15 at sp + 72 ... sp + 128 */
