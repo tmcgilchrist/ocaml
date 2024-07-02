@@ -12,10 +12,10 @@ Process XXXX stopped
 * thread #1, queue = 'XXXX', stop reason = breakpoint 1.1
     frame #0: 0x00000000000000 fib`camlFib.main_272
 fib`camlFib.main_272:
-->  0x00000000000000 <+0>:  ldr    x16, [x28, #0x28]
-    0x00000000000000 <+4>:  add    x16, x16, #0x158
-    0x00000000000000 <+8>:  cmp    sp, x16
-    0x00000000000000 <+12>: b.lo   0x00000000000000               ; camlFib.fib_270 + 128
+->  0x00000000000000 <+XX>:  ldr    x16, [x28, #0x28]
+    0x00000000000000 <+XX>:  add    x16, x16, #0x158
+    0x00000000000000 <+XX>:  cmp    sp, x16
+    0x00000000000000 <+XX>: b.lo   0x00000000000000               ;
 Target 0: (fib) stopped.
 Process XXXX launched: 'XXXX' ($ARCH)
 (lldb) backtrace
@@ -35,10 +35,10 @@ Process XXXX stopped
 * thread #1, queue = 'XXXX', stop reason = breakpoint 2.1
     frame #0: 0x00000000000000 fib`camlFib.fib_270
 fib`camlFib.fib_270:
-->  0x00000000000000 <+0>:  ldr    x16, [x28, #0x28]
-    0x00000000000000 <+4>:  add    x16, x16, #0x158
-    0x00000000000000 <+8>:  cmp    sp, x16
-    0x00000000000000 <+12>: b.lo   0x00000000000000               ; camlFib.code_begin + 8
+->  0x00000000000000 <+XX>:  ldr    x16, [x28, #0x28]
+    0x00000000000000 <+XX>:  add    x16, x16, #0x158
+    0x00000000000000 <+XX>:  cmp    sp, x16
+    0x00000000000000 <+XX>: b.lo   0x00000000000000               ;
 Target 0: (fib) stopped.
 (lldb) backtrace
 frame 0: fib`camlFib.fib_270
