@@ -4,11 +4,11 @@
    arch_amd64;
    script = "sh ${test_source_directory}/has_lldb.sh";
    script;
-   readonly_files = "fib.ml lldb_test.py";
+   readonly_files = "meander.ml meander_c.c lldb_test.py";
    setup-ocamlopt.byte-build-env;
-   program = "${test_build_directory}/fib";
+   program = "${test_build_directory}/meander";
    flags = "-g";
-   all_modules = "fib.ml";
+   all_modules = "meander.ml meander_c.c";
    ocamlopt.byte;
    debugger_script = "${test_source_directory}/lldb-script";
    lldb;

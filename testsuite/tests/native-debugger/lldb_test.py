@@ -3,6 +3,8 @@ from __future__ import print_function
 
 import lldb
 
+# Print backtrace by walking LLDB frames
+#
 def print_backtrace(debugger, command, result, dict):
     """
     Walk process call stack printing out frame names
