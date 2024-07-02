@@ -168,6 +168,8 @@ jobs:
           # Allows starting up lldb from a remote terminal
           sudo DevToolsSecurity --enable
           spctl developer-mode enable-terminal
+          # Select latest supported version
+          sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
 
       - name: configure tree
         run: |
