@@ -92,3 +92,4 @@ frame 12: meander`caml_startup
 frame 13: meander`caml_main
 frame 14: meander`main
 frame 15: dyld`start
+(lldb) quit

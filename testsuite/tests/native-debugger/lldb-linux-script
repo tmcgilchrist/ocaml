@@ -1,0 +1,14 @@
+br s -n caml_start_program
+br s -n caml_program
+br s -n ocaml_to_c
+br s -r camlMeander.c_to_ocaml*
+run
+bt
+c
+bt
+continue
+bt
+continue
+bt
+continue
+quit

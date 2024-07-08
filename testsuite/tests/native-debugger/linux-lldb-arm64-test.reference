@@ -1,0 +1,115 @@
+(lldb) target create "XXXX"
+Current executable set to 'XXXX' (aarch64).
+(lldb) command source -s 0 'XXXX'
+Executing commands in 'XXXX'.
+(lldb) settings set stop-disassembly-display never
+(lldb) command script import ./lldb_test.py
+(lldb) create caml_start_program
+Breakpoint created for regex caml_start_program.
+(lldb) create caml_program
+Breakpoint created for regex caml_program.
+(lldb) create camlMeander.c_to_ocaml*
+Breakpoint created for regex camlMeander.c_to_ocaml*.
+(lldb) create ocaml_to_c
+Breakpoint created for regex ocaml_to_c.
+(lldb) run
+Process XXXX launched: 'XXXX' (aarch64)
+Process XXXX stopped
+* thread #1, name = 'XXXX', stop reason = breakpoint 1.1
+    frame #0: 0x00000000000000 meander`caml_start_program
+(lldb) backtrace
+frame 0: meander`caml_start_program
+frame 1: meander`caml_startup_common
+frame 2: meander`caml_startup_common
+frame 3: meander`caml_startup_exn
+frame 4: meander`caml_startup
+frame 5: meander`caml_main
+frame 6: meander`main
+frame 7: libc.so.6`__libc_start_call_main
+frame 8: libc.so.6`__libc_start_main_impl
+frame 9: meander`_start
+(lldb) continue
+Process XXXX resuming
+Process XXXX stopped
+* thread #1, name = 'XXXX', stop reason = breakpoint 2.1
+    frame #0: 0x00000000000000 meander`caml_program
+(lldb) backtrace
+frame 0: meander`caml_program
+frame 1: meander`caml_start_program
+frame 2: meander`caml_startup_common
+frame 3: meander`caml_startup_common
+frame 4: meander`caml_startup_exn
+frame 5: meander`caml_startup
+frame 6: meander`caml_main
+frame 7: meander`main
+frame 8: libc.so.6`__libc_start_call_main
+frame 9: libc.so.6`__libc_start_main_impl
+frame 10: meander`_start
+(lldb) continue
+Process XXXX resuming
+Process XXXX stopped
+* thread #1, name = 'XXXX', stop reason = breakpoint 3.1
+    frame #0: 0x00000000000000 meander`ocaml_to_c(unit=1) at meander_c.c:4:31
+   1   	#include <caml/mlvalues.h>
+   2   	#include <caml/callback.h>
+   3   	
+-> 4   	value ocaml_to_c (value unit) {
+    	                              ^
+   5   	    caml_callback(*caml_named_value
+   6   	                  ("c_to_ocaml"), Val_unit);
+   7   	    return Val_int(0);
+(lldb) bt
+* thread #1, name = 'XXXX', stop reason = breakpoint 3.1
+  * frame #0: 0x00000000000000 meander`ocaml_to_c(unit=1) at meander_c.c:4:31
+    frame #1: 0x00000000000000 meander`caml_c_call + 52
+    frame #2: 0x00000000000000 meander`camlMeander.omain_278 at meander.ml:10
+    frame #3: 0x00000000000000 meander`camlMeander.entry at meander.ml:13
+    frame #4: 0x00000000000000 meander`caml_program + 168
+    frame #5: 0x00000000000000 meander`caml_start_program + 132
+    frame #6: 0x00000000000000 meander`caml_startup_common [inlined] caml_startup_common(pooling=4, argv=0x00000000000000) at startup_nat.c:128:9
+    frame #7: 0x00000000000000 meander`caml_startup_common(argv=0x00000000000000, pooling=4) at startup_nat.c:87:7
+    frame #8: 0x00000000000000 meander`caml_main [inlined] caml_startup_exn(argv=<unavailable>) at startup_nat.c:135:10
+    frame #9: 0x00000000000000 meander`caml_main [inlined] caml_startup(argv=<unavailable>) at startup_nat.c:140:15
+    frame #10: 0x00000000000000 meander`caml_main(argv=<unavailable>) at startup_nat.c:147:3
+    frame #11: 0x00000000000000 meander`main(argc=<unavailable>, argv=<unavailable>) at main.c:37:3
+    frame #12: 0x00000000000000 libc.so.6`__libc_start_call_main(main=(meander`main at main.c:31:1), argc=1, argv=0x00000000000000) at libc_start_call_main.h:58:16
+    frame #13: 0x00000000000000 libc.so.6`__libc_start_main_impl(main=0x00000000000000, argc=1, argv=0x00000000000000, init=<unavailable>, fini=<unavailable>, rtld_fini=<unavailable>, stack_end=<unavailable>) at libc-start.c:360:3
+    frame #14: 0x00000000000000 meander`_start + 48
+(lldb) continue
+warning: This version of LLDB has no plugin for the language "assembler". Inspection of frame variables will be limited.
+Process XXXX resuming
+Process XXXX stopped
+* thread #1, name = 'XXXX', stop reason = breakpoint 4.1
+    frame #0: 0x00000000000000 meander`camlStd_exit.code_end at meander.ml:5
+   2   	         : unit -> int = "ocaml_to_c"
+   3   	exception E1
+   4   	exception E2
+-> 5   	let c_to_ocaml () = raise E1
+   6   	let _ = Callback.register
+   7   	          "c_to_ocaml" c_to_ocaml
+   8   	let omain () =
+(lldb) bt
+* thread #1, name = 'XXXX', stop reason = breakpoint 4.1
+  * frame #0: 0x00000000000000 meander`camlStd_exit.code_end at meander.ml:5
+    frame #1: 0x00000000000000 meander`caml_start_program + 132
+    frame #2: 0x00000000000000 meander`caml_callback_exn(closure=<unavailable>, arg=<unavailable>) at callback.c:206:12
+    frame #3: 0x00000000000000 meander`caml_callback(closure=<unavailable>, arg=1) at callback.c:347:10
+    frame #4: 0x00000000000000 meander`ocaml_to_c(unit=<unavailable>) at meander_c.c:5:5
+    frame #5: 0x00000000000000 meander`caml_c_call + 52
+    frame #6: 0x00000000000000 meander`camlMeander.omain_278 at meander.ml:10
+    frame #7: 0x00000000000000 meander`camlMeander.entry at meander.ml:13
+    frame #8: 0x00000000000000 meander`caml_program + 168
+    frame #9: 0x00000000000000 meander`caml_start_program + 132
+    frame #10: 0x00000000000000 meander`caml_startup_common [inlined] caml_startup_common(pooling=4, argv=0x00000000000000) at startup_nat.c:128:9
+    frame #11: 0x00000000000000 meander`caml_startup_common(argv=0x00000000000000, pooling=4) at startup_nat.c:87:7
+    frame #12: 0x00000000000000 meander`caml_main [inlined] caml_startup_exn(argv=<unavailable>) at startup_nat.c:135:10
+    frame #13: 0x00000000000000 meander`caml_main [inlined] caml_startup(argv=<unavailable>) at startup_nat.c:140:15
+    frame #14: 0x00000000000000 meander`caml_main(argv=<unavailable>) at startup_nat.c:147:3
+    frame #15: 0x00000000000000 meander`main(argc=<unavailable>, argv=<unavailable>) at main.c:37:3
+    frame #16: 0x00000000000000 libc.so.6`__libc_start_call_main(main=(meander`main at main.c:31:1), argc=1, argv=0x00000000000000) at libc_start_call_main.h:58:16
+    frame #17: 0x00000000000000 libc.so.6`__libc_start_main_impl(main=0x00000000000000, argc=1, argv=0x00000000000000, init=<unavailable>, fini=<unavailable>, rtld_fini=<unavailable>, stack_end=<unavailable>) at libc-start.c:360:3
+    frame #18: 0x00000000000000 meander`_start + 48
+(lldb) continue
+Process XXXX resuming
+Process XXXX exited with status = 0 (0x00000000000000)
+(lldb) quit
