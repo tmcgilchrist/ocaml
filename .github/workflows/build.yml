@@ -172,6 +172,7 @@ jobs:
           spctl developer-mode enable-terminal
           # Select latest supported version
           sudo xcode-select -s /Applications/Xcode_15.2.app/Contents/Developer
+          lldb --version
 
       - name: MacOS 14 Dependencies
         if: matrix.os == 'macos-14'
@@ -181,7 +182,8 @@ jobs:
           sudo DevToolsSecurity --enable
           spctl developer-mode enable-terminal
           # Select latest supported version
-          sudo xcode-select -s /Applications/Xcode_15.3.app/Contents/Developer
+          sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
+          lldb --version
 
       - name: configure tree
         run: |
