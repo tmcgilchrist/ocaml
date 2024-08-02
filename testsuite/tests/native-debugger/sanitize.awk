@@ -18,11 +18,12 @@
     gsub("Process ([0-9]+)", "Process XXXX")
 
     # Replace debug process forked by gdb
-    gsub("Inferior 1 \[process [0-9]+\] will be killed.", "Inferior 1 [process XX] will be killed.")
+    gsub("Inferior 1 [process [0-9]+] will be killed.", "Inferior 1 [process XX] will be killed.")
 
     # Replace architecture identifiers
-    gsub("\(x86_64\)", "$ARCH")
-    gsub("\(arm64\)", "$ARCH")
+    gsub("(x86_64)", "$ARCH")
+    gsub("(arm64)", "$ARCH")
+    gsub("(riscv64)", "$ARCH")
 
     # Replace printed match results
     gsub("1 match found in /(.*):$", "1 match found in \"XXXX\":")
