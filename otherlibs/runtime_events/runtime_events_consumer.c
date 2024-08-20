@@ -191,8 +191,7 @@ cursor_map_ring_file(struct caml_runtime_events_cursor *cursor,
   int ring_fd = open(runtime_events_loc, open_flags, 0);
 
   if( ring_fd == -1 ) {
-    ret = E_OPEN_FAILURE;
-    goto free_events_loc;
+      return E_OPEN_FAILURE;
   }
 
   struct stat tmp_stat;
