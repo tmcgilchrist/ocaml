@@ -690,7 +690,7 @@ L(jump_to_caml):
             /* 32   struct c_stack_link + pad */                      \
             /* 18*8 callee save regs */                               \
             /* 16   fp + ret addr */                                  \
-            /* need to split to get under 127 limit */                \
+            /* 192 total, need to split to get under 127 limit */     \
           DW_OP_plus_uconst, 96, DW_OP_plus_uconst, 96
 #endif
     /* Call the OCaml code */
@@ -749,7 +749,7 @@ L(return_result):
 END_FUNCTION(caml_start_program)
 
 /* The trap handler */
-
+FUNCTION(trap_handler)
         .align  2
 L(trap_handler):
         CFI_STARTPROC
@@ -760,6 +760,7 @@ L(trap_handler):
     /* Return it */
         b       L(return_result)
         CFI_ENDPROC
+END_FUNCTION(trap_handler)
 
 /* Exceptions */
 

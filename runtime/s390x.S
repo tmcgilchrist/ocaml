@@ -649,7 +649,7 @@ LBL(caml_start_program):
         lgr     %r15, %r8
 #ifdef ASM_CFI_SUPPORTED
         CFI_REMEMBER_STATE
-        CFI_OFFSET(14, 0)
+        CFI_OFFSET(14, 0) /* Link Register offset */
         .cfi_escape DW_CFA_def_cfa_expression, 3 + 3,                 \
             /* %r15 points to the exn handler on the OCaml stack */   \
             /* %r15 + 16 contains the C_STACK_SP */                   \

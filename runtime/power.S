@@ -706,8 +706,8 @@ FUNCTION caml_start_program
        - the standard reserved space */
 #define STACKSIZE (18 * 8 + 18 * 8 + CALLBACK_LINK_SIZE /* 32 */ + RESERVED_STACK /* 32 */) /* 352 */
     /* Allocate and link stack frame */
-        CFI_OFFSET(SP, -STACKSIZE)             /* Stack Pointer */
-        /*CFI_OFFSET(lr, -(STACKSIZE + LR_SAVE))*/ /* Link Register */
+    /*    CFI_OFFSET(, -STACKSIZE)             *//* Frame Pointer */
+    /*    CFI_OFFSET(lr, -(STACKSIZE - LR_SAVE)) *//* Link Register */
         stdu    SP, -STACKSIZE(SP)             /* -352(SP) */
         CFI_ADJUST(STACKSIZE)                  /* 352 */
     /* Save return address and TOC pointer */
@@ -715,7 +715,7 @@ FUNCTION caml_start_program
         std     0, (STACKSIZE + LR_SAVE)(SP)          /* store Link Register at sp + 352 + 16 */
         std     2, (STACKSIZE + TOC_SAVE_PARENT)(SP)  /* store TOC parent pointer at sp + 352 + 24 */
     /* Save all callee-save registers */
-        addi    TMP, SP, CALLBACK_LINK_SIZE + RESERVED_STACK - 8 /* 56 */
+        addi    TMP, SP, CALLBACK_LINK_SIZE + RESERVED_STACK - 8 /* 32 + 32 - 8 */
         stdu    14, 8(TMP)
         stdu    15, 8(TMP)
         stdu    16, 8(TMP)
@@ -760,14 +760,13 @@ FUNCTION caml_start_program
         ld      0, Caml_state(c_stack)
         std     0, Cstack_prev(SP)
         std     SP, Caml_state(c_stack)
-    /* load the OCaml stack */
+    /* Load the OCaml stack */
         ld      TMP, Caml_state(current_stack)
         ld      TMP, Stack_sp(TMP)
     /* Store the gc_regs for callbacks during a GC */
         ld      0, Caml_state(gc_regs)
         stdu    0, -8(TMP)
     /* Store the stack pointer to allow DWARF unwind (one day) */
-        std     0,  0(TMP)
         stdu    SP, -8(TMP)
     /* Setup a trap frame to catch exceptions escaping the OCaml code */
         addi    TMP, TMP, -TRAP_SIZE
@@ -777,20 +776,22 @@ FUNCTION caml_start_program
         std     0, TRAP_HANDLER_OFFSET(TMP)
         mr      TRAP_PTR, TMP
     /* Switch stacks, reserving 32 bytes at the bottom of the OCaml stack */
-        addi    SP, TMP, -RESERVED_STACK
+        addi    SP, TMP, -RESERVED_STACK /* RESERVED_STACK = 32 */
+        /* TODO Breaks here! Looses C frames.  break *(&caml_start_program+244) */
+
 #ifdef ASM_CFI_SUPPORTED
-        CFI_REMEMBER_STATE
-        /* TODO s390x has a LR hint here? */
-        /* TODO How do we find the Link Register? Where does sp + 16 come from? Should it be CALLBACK_LINK_SIZE 32? */
+        CFI_REMEMBER_STATE /* p290 DWARF 5 spec */
         .cfi_escape DW_CFA_def_cfa_expression, 3 + 2 + 2 + 2,        \
             /* sp points to the exn handler on the OCaml stack */    \
-            /* sp + 16 contains the C_STACK_SP */                    \
-          DW_OP_breg + DW_REG_sp, 16 /* exn handler */, DW_OP_deref, \
-            /* 32 struct c_stack_link + pad */                       \
+            /* sp + RESERVED_STACK + 16 contains the C_STACK_SP */   \
+          DW_OP_breg + DW_REG_sp, 16, DW_OP_deref,                   \
+            /* 48 struct c_stack_link + pad??? */                    \
             /* 36*8 callee save regs */                              \
-            /* 2*8   fp + ret addr */                                \
-            /* 352 need to split to get under 127 limit */           \
-        DW_OP_plus_uconst, 127, DW_OP_plus_uconst, 127, DW_OP_plus_uconst, 96
+            /* 2*8 fp + ret addr */                                  \
+            /* 352 total, need to split to get under 127 limit */    \
+        DW_OP_plus_uconst, 127,                                      \
+        DW_OP_plus_uconst, 127,                                      \
+        DW_OP_plus_uconst, 98
 #endif
         /* Call the OCaml code (address in START_PRG_ARG) */
         mtctr   START_PRG_ARG
