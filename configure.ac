@@ -2791,7 +2791,7 @@ AS_IF([$native_compiler],
 AS_IF([test x"$enable_frame_pointers" = "xyes"],
   [AS_CASE([$target],
     [x86_64-*-linux*|x86_64-*-darwin*|x86_64-*-freebsd*|aarch64-*-linux*| \
-     aarch64-*-darwin*|aarch64-*-freebsd*],
+     aarch64-*-darwin*|aarch64-*-freebsd*|riscv64-*-linux*],
      [AS_CASE([$ocaml_cc_vendor],
         [clang-*|gcc-*],
          [common_cflags="$common_cflags -g  -fno-omit-frame-pointer"
