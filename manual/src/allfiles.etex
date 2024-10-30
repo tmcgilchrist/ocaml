@@ -69,7 +69,9 @@ and as a
 \input{ocamldep.tex}
 \input{ocamldoc.tex}
 \input{debugger.tex}
+\input{native-debugger.tex}
 \input{profil.tex}
+\input{profile-perf.tex}
 \input{intf-c.tex}
 \input{flambda.tex}
 \input{afl-fuzz.tex}

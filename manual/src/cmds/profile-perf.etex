@@ -1,0 +1,57 @@
+\chapter{Profiling (perf)} \label{c:profiler-perf}
+%HEVEA\cutname{profiler-perf.html}
+
+\section{s:profiler-perf}{Overview and usage}
+
+This chapter describes how to profile OCaml programs using the Linux Profiling tool, perf(1). Perf is a multi-purpose tool included with Linux for profiling, tracing and scripting, and is the interface for the kernel perf_events observability subsystem. The main features that will be covered here are perf-record(1) for recording events and perf-report(1) for printing and visualising recorded events. Perf has many other features for profiling and visualising performance on  Linux, See (man perf(1), \href{https://perfwiki.github.io/main/}{perfwiki.github.io} or \href{https://www.brendangregg.com/perf.html}{https://www.brendangregg.com/perf.html}) for more general documentation.
+
+\section{s:ocamlperf-compiling}{Compiling for profiling}
+
+How to setup your executable for time profiling depends on which version of OCaml being used. For OCaml versions 4.14 and earlier there is no special requirements for capturing traces. For OCaml 5.0 onwards, it is recommended to recompile with Frame Pointers enabled.
+
+To use Frame Pointers, you must configure the compiler with --enable-frame-pointers. You can also
+install an opam switch with Frame Pointers enabled as follows:
+
+\begin{verbatim}
+opam switch create <YOUR-SWITCH-NAME-HERE> ocaml-option-fp
+\end{verbatim}
+
+Frame Pointer support for OCaml is currently available for the x86_64 architecture, on Linux from OCaml 4.12 onwards, on macOS from OCaml 5.3, and for the arm64 architecture on Linux and macOS from OCaml 5.3. Other Tier-1 architecures POWER, riscv and s390x are unsupported.
+
+OCaml 5 introduced non-contiguous stacks as part of the implementation of effects. Mentioned in the PLDI 2021 paper on retrofitting effect handlers -- Section 5.5 in https://kcsrk.info/papers/retro-concurrency_pldi_21.pdf. The non-contiguous stacks do not work with the copying nature of perf, so traces produced for OCaml 5 without frame pointers enabled will be truncated and inaccurate. They will also be truncated if your Linux distribution doesn't enable frame pointers.
+
+`perf record` works by copying (a segment) of the stack at every sample and recording this into a perf.data file. These samples are then processed (using `perf report` to reconstruct the profiled program's call stack at every sample) after recording has finished.
+
+`perf record --call-graph` has multiple options for record call graphs:
+\begin{itemize}
+\item Frame Pointers, which is the default.
+\item DWARF's Call Frame Information (CFI)
+\item Hardware Last Branch Record (LBR) available on certain Intel CPUs
+\end{itemize}
+
+* Explain name mangling rules
+
+Perf will use the symbols present in an OCaml executable, so it is useful to understand OCaml's name mangling scheme to map these names to OCaml source locations. 
+
+Before 5.1, ocamlopt mangles names using the following format: camlModule__Submodule__identifier_stamp
+5.1 onwards replaces the double underscore separator with a dot camlModule.Submodule.identifier_stamp
+
+For instance, consider the following program:
+\begin{caml_example*}{verbatim}
+module Compute = struct
+  let rec fib n = 
+    if n = 0 then 0
+    else if n = 1 then 1
+    else fib (n-1) + fib (n-2)
+end
+
+let main () = 
+  let r = Compute.fib 20 in 
+  Printf.printf "fib(20) = %d" r
+
+let _ = main ()
+\end{caml_example*}
+
+\section{s:ocamlperf-conclusion}{Conclusion}
+
+Enabling Frame Pointers may introduce a small performance penalty on certain architectures (up to 10% perf cost on x86_64 has been measured). Users of this feature are encouraged to do their own benchmarking to determine the impact.

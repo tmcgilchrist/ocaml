@@ -10,8 +10,8 @@ TEXQUOTE = $(OCAMLRUN) $(TOOLS)/texquote2
 TRANSF = $(OCAMLRUN) $(TOOLS)/transf
 
 FILES = comp.tex top.tex runtime.tex native.tex lexyacc.tex intf-c.tex \
-  ocamldep.tex profil.tex debugger.tex ocamldoc.tex \
-  warnings-help.tex flambda.tex tail-mod-cons.tex \
+  ocamldep.tex profil.tex profile-perf.tex debugger.tex native-debugger.tex \
+  ocamldoc.tex warnings-help.tex flambda.tex tail-mod-cons.tex \
   afl-fuzz.tex runtime-tracing.tex unified-options.tex tsan.tex
 
 etex-files: $(FILES)
