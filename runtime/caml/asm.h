@@ -19,6 +19,7 @@
 
 #ifdef ASM_CFI_SUPPORTED
 #define CFI_ADJUST(n)           .cfi_adjust_cfa_offset n
+#define CFI_DEF_CFA(r,n)        .cfi_def_cfa r, n
 #define CFI_DEF_CFA_OFFSET(n)   .cfi_def_cfa_offset n
 #define CFI_DEF_CFA_REGISTER(r) .cfi_def_cfa_register r
 #define CFI_ENDPROC             .cfi_endproc
@@ -32,6 +33,7 @@
 #define CFI_STARTPROC           .cfi_startproc
 #else
 #define CFI_ADJUST(n)
+#define CFI_DEF_CFA(r,n)
 #define CFI_DEF_CFA_OFFSET(n)
 #define CFI_DEF_CFA_REGISTER(r)
 #define CFI_ENDPROC

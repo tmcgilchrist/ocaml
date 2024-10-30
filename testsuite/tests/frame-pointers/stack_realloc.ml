@@ -12,6 +12,12 @@
    reference = "${test_source_directory}/stack_realloc.reference";
    arch_amd64;
    native;
+ } {
+   (* NOTE gcc on RISC-V is also less eager to inline
+           certain C functions in the runtime, like ARM64. *)
+   reference = "${test_source_directory}/stack_realloc.arm64.reference";
+   arch_riscv;
+   native;
  }
 *)
 
