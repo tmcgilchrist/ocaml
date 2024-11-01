@@ -1,37 +1,43 @@
 \chapter{Profiling (perf)} \label{c:profiler-perf}
 %HEVEA\cutname{profiler-perf.html}
 
-\section{s:profiler-perf}{Overview and usage}
+This chapter describes how use \texttt{perf}, the Linux Performance Events tools, to profile OCaml programs.
 
-This chapter describes how to profile OCaml programs using the Linux Profiling tool, perf(1). Perf is a multi-purpose tool included with Linux for profiling, tracing and scripting, and is the interface for the kernel perf_events observability subsystem. The main features that will be covered here are perf-record(1) for recording events and perf-report(1) for printing and visualising recorded events. Perf has many other features for profiling and visualising performance on  Linux, See (man perf(1), \href{https://perfwiki.github.io/main/}{perfwiki.github.io} or \href{https://www.brendangregg.com/perf.html}{Brendan Gregg's Blog}) for more general documentation.
+Linux Performance Events (\texttt{perf}) is a set of tools for performance observability, including CPU performance counter profiling , and static and dynamic tracing. The main features covered here are \texttt{perf-record(1)} for recording events and \texttt{perf-report(1)} for printing and visualising recorded events. Perf has many other features for profiling and visualising performance, see (man perf(1), \href{https://perfwiki.github.io/main/}{Perf wiki} or \href{https://www.brendangregg.com/perf.html}{Brendan Gregg's Blog}) for more general documentation.
 
 \section{s:ocamlperf-compiling}{Compiling for profiling}
 
-How to setup your executable for time profiling depends on which version of OCaml is being used. For OCaml versions 4.14 and earlier either frame pointers or DWARF can be used. For OCaml 5.0 onwards, it is recommended to recompile with frame pointers enabled.
+How to setup your executable for time profiling depends on which version of OCaml is being used. For OCaml versions 4.14 and earlier, either frame pointers or DWARF can be used. For OCaml 5.0 onwards, it is recommended to compile with frame pointers enabled.
 
 To use frame pointers, you must configure the compiler with \texttt{--enable-frame-pointers}. You can also install an opam switch with frame pointers enabled as follows:
 
 \begin{verbatim}
-opam switch create <YOUR-SWITCH-NAME-HERE> ocaml-option-fp
+        opam switch create <YOUR-SWITCH-NAME-HERE> ocaml-option-fp
 \end{verbatim}
 
-Frame pointer support for OCaml is currently available for the x86_64 architecture, on Linux from OCaml 4.12 onwards, on macOS from OCaml 5.3, and for the arm64 architecture on Linux and macOS from OCaml 5.3. Other Tier-1 architecures POWER, riscv and s390x are currently unsupported.
+Frame pointer support for OCaml is available for x86_64 architecure on Linux from OCaml 4.12 onwards and on macOS from OCaml 5.3. Support for the arm64 architecture is available on Linux and macOS from OCaml 5.3. Other Tier-1 architecures POWER, RISC-V and s390x are currently unsupported.
 
-OCaml 5 introduced non-contiguous stacks as part of the implementation of effects, mentioned in
-\href{Retrofitting effect handlers onto OCaml}{https://dl.acm.org/doi/10.1145/3453483.3454039} Section 5.5. The non-contiguous stacks do not work with the copying nature of perf, so traces produced for OCaml 5 without frame pointers enabled will be truncated and/or inaccurate. Further more they will also be truncated if your Linux distribution doesn't enable frame pointers for libraries OCaml links against (e.g. libc).
+OCaml 5 requires frame pointers due to the non-contiguous stacks that are used in the implementation of effects, mentioned in \href{https://dl.acm.org/doi/10.1145/3453483.3454039}{Retrofitting effect handlers onto OCaml} Section 5.5. The non-contiguous stacks do not work with the copying nature of perf, so traces produced for OCaml 5 without frame pointers enabled will be truncated and/or inaccurate. Further more they will also be truncated if your Linux distribution doesn't enable frame pointers for libraries OCaml link against (e.g. libc).
 
-The "perf record" command, used for CPU profiling, works by copying (a segment) of the call stack at every sample and recording this into a perf.data file. These samples are then processed (using "perf report" to reconstruct the profiled program's call stack at every sample) offline, after recording has finished.
+\section{s:ocamlperf-profiling}{Profiling an execution}
 
-"perf record --call-graph" has multiple options for record call graphs:
+The basic \texttt{perf} command is:
+\begin{verbatim}
+        perf record -F 99 --call-graph fp <YOUR_EXECUTABLE>
+\end{verbatim}
+
+The \texttt{-F 99} tells perf to sample at 99Hz, which avoids generating excessive data for longer runs and is unlikely to be in lockstep with other periodic activities. The \texttt{--call-graph fp} instructs perf to use frame pointers to get the call-graph (which is the default anyway) and then whatever OCaml executable you want to profile. This will create a \texttt{perf.data} file in the current directory, alternatively use \texttt{--output} to choose a more descriptive filename.
+
+The \texttt{perf record} command works by copying (a segment) of the call stack at every sample and recording this into a perf.data file. These samples are then processed (using \texttt{perf report} to reconstruct the profiled program's call stack at every sample) offline, after recording has finished.
+
+\texttt{perf record --call-graph} has multiple options for record call graphs:
 \begin{itemize}
 \item Frame Pointers, which is the default
 \item DWARF's Call Frame Information (CFI)
 \item Hardware Last Branch Record (LBR) available on certain Intel CPUs
 \end{itemize}
 
-Perf will use the symbols present in an OCaml executable, so it is useful to understand OCaml's name mangling scheme to map these names to OCaml source locations. 
-
-Before 5.1, ocamlopt mangles names using the following format "camlModule__identifier_stamp" while 5.1 onwards replaces the double underscore separator with a dot "camlModule.identifier_stamp". Both options are supported in perf.
+Perf will use the symbols present in an OCaml executable, so it is useful to understand OCaml's name mangling scheme to map these names to OCaml source locations. Before 5.1, ocamlopt mangles names using the following format "camlModule__identifier_stamp" while 5.1 onwards replaces the double underscore separator with a dot "camlModule.identifier_stamp". Both options are supported by perf.
 
 For example, consider the following program:
 \begin{caml_example*}{verbatim}
@@ -49,22 +55,36 @@ let main () =
 let _ = main ()
 \end{caml_example*}
 
-This will produce the following names "camlFib.main_274" for "main" function and "camlFib.fib_271" for the "fib" function in the "Compute" module when compiled with OCaml 5.2.
+This will produce the following names \texttt{camlFib.main_274} for \texttt{main} function and \texttt{camlFib.fib_271} for the \texttt{fib} function in the \texttt{Compute} module when compiled with OCaml 5.2.
 
-The basic `perf` command is:
+\section{s:ocamlperf-printing}{Printing profiling information}
+
+The basic \texttt{perf} reporting command is:
+
 \begin{verbatim}
-$ perf record -F 99 --call-graph fp <YOUR_EXECUTABLE>
+        perf report -f --no-children perf.data
 \end{verbatim}
 
-The "-F 99" tells perf to sample at 99Hz, which avoids generating excessive data for longer runs and is
-unlikely to be in lockstep with other periodic activities. The "--call-graph fp" instructs perf to use
-frame pointer to get the call-graph (which is the default anyway) and then whatever OCaml executable you
-want to profile. This will create a "perf.data" file in the current directory, alternatively use "--output" to choose a more descriptive filename.
+this will display the accumulated call-graphs in an interactive terminal interface where you can navigate the data, select functions and threads for more information. \texttt{--stdio} will output present similar data using a text based report.
 
-This profile data can then be processed by "perf-record" in any number of ways, for example \href{https://www.brendangregg.com/flamegraphs.html}{Flame Graphs} or online tools like \href{https://www.speedscope.app}{www.speedscope.app} or \href{https://profiler.firefox.com/}{profiler.firefox.com} or any other tool that accepts Linux perf data.
+Alternatively profiles can be turned into FlameGraphs, a visualization of hierarchical data, created to visualize stack traces of profiled software so that the most frequent code-paths to be identified quickly and accurately. Use the scripts found at Brendan Gregg's \href{https://www.brendangregg.com/flamegraphs.html}{Flame Graphs} web page as follows:
+
+\begin{verbatim}
+        git clone https://github.com/brendangregg/FlameGraph
+        cd FlameGraph
+
+        # Collect the results into perf.data
+        perf record -F 99 --call-graph fp <YOUR_EXECUTABLE>
+        perf script | ./stackcollapse-perf.pl out.folded
+        flamegraph.pl out.folded > out.svg ## Create the FlameGraph svg
+\end{verbatim}
 
 Additionally some perf tools (e.g. perf-report(1) and perf-annotate(1)) make use of DWARF debugging symbols for re-associating symbols with source code locations, if you need these features then recompile with "-g" to include debugging information with the executable.
 
+The profile data captured can be processed by \texttt{perf-record} in a number of other ways, or using online tools like \href{https://www.speedscope.app}{speedscope.app} and \href{https://profiler.firefox.com/}{profiler.firefox.com}, or any other tool that accepts Linux perf data.
+
 \section{s:ocamlperf-conclusion}{Conclusion}
 
-Enabling Frame Pointers may introduce a small performance penalty on certain architectures (up to 10% perf cost on x86_64 has been measured). Users of this feature are encouraged to do their own benchmarking to determine the impact.
+Enabling Frame Pointers may introduce a small performance penalty on certain architectures (up to 10\% perf cost on x86_64 has been measured). Users of this feature are encouraged to do their own benchmarking to determine the impact.
+
+For time profiling of native code, users are recommended to use standard tools such as perf (on Linux), Instruments (on macOS), DTrace and eBPF. Profiling with gprof is no longer supported.
