@@ -94,6 +94,12 @@ Working version
    review by Florian Angeletti, Anil Madhavapeddy, Gabriel Scherer,
    and Miod Vallat)
 
+- #?????: Document support for Linux perf and frame pointers.
+  (Tim McGilchrist, review by ???)
+
+- #?????: Document support for native debugging with GDB and LLDB.
+  (Tim McGilchrist, review by ???)
+
 ### Compiler user-interface and warnings:
 
 - #13428: support dump=[source | parsetree | lambda | ... | cmm | ...]
