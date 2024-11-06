@@ -87,4 +87,4 @@ The profile data captured can be processed by \texttt{perf script} in a number o
 
 For time profiling of native code, users are recommended to use standard tools such as perf, eBPF, DTrace or Instruments (on macOS). Compiling with frame pointers enabled is often required to allow these tools to work most effectively. Profiling with gprof is no longer supported.
 
-Enabling Frame Pointers may introduce a small performance penalty on certain architectures (up to 10\% performance cost on x86_64 has been measured). Users of this feature are encouraged to do their own benchmarking to determine the impact.
+Enabling frame pointers may introduce a performance penalty on certain architectures (up to 10\% performance cost on x86_64 has been measured). Users of this feature are encouraged to do their own benchmarking to determine the impact.
