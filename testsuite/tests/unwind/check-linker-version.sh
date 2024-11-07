@@ -2,7 +2,7 @@
 
 LDFULL="`ld -v 2>&1`"
 LD="`echo $LDFULL | grep -o \"PROJECT:ld-[0-9]*\"`"
-LDVER="`echo $LD | sed \"s/PROJECT:ld-//\"`"
+LDVER="`echo $LD | sed \"s/PROJECT:ld[64]?-//\"`"
 
 # Extract the first 3 parts of an LD version number
 version () {
