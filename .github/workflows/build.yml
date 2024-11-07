@@ -149,6 +149,7 @@ jobs:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - name: linux-O0
@@ -173,6 +174,7 @@ jobs:
           spctl developer-mode enable-terminal
           # Support oldest possible version
           sudo xcode-select -s /Applications/Xcode_14.3.1.app/Contents/Developer
+          export MACOSX_DEPLOYMENT_TARGET=13.3
           # Select latest supported version
           # sudo xcode-select -s /Applications/Xcode_15.2.app/Contents/Developer
           lldb --version
@@ -188,6 +190,7 @@ jobs:
           spctl developer-mode enable-terminal
           # Support oldest possible version
           sudo xcode-select -s /Applications/Xcode_14.3.1.app/Contents/Developer
+          export MACOSX_DEPLOYMENT_TARGET=13.3
           # Select latest supported version
           # sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
           lldb --version
