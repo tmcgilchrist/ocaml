@@ -171,8 +171,10 @@ jobs:
           # Allows starting up lldb from a remote terminal
           sudo DevToolsSecurity --enable
           spctl developer-mode enable-terminal
+          # Support oldest possible version
+          sudo xcode-select -s /Applications/Xcode_14.3.1.app/Contents/Developer
           # Select latest supported version
-          sudo xcode-select -s /Applications/Xcode_15.2.app/Contents/Developer
+          # sudo xcode-select -s /Applications/Xcode_15.2.app/Contents/Developer
           lldb --version
 
       - name: MacOS 14 Dependencies
