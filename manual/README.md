@@ -8,7 +8,7 @@ Prerequisites
 
 - A LaTeX installation.
 
-- The HeVeA LaTeX-to-HTML converter (available in OPAM):
+- The HeVeA LaTeX-to-HTML converter (available in opam):
   <http://hevea.inria.fr/>
 
 Note that you must make sure `hevea.sty` is installed into TeX properly. Your
@@ -125,7 +125,7 @@ rather than
 ```latex
 \section{Basics\label{s:basics}}
 ```
-This restriction ensures that HEVEA picks the section label when generating the
+This restriction ensures that HeVeA picks the section label when generating the
 header IDs.
 
 A similar macro, `\lparagraph`, is provided for paragraphs.
