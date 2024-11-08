@@ -15,7 +15,7 @@ Note that you must make sure `hevea.sty` is installed into TeX properly. Your
 package manager may not do this for you. Run `kpsewhich hevea.sty` to check.
 
 
-Building the manual
+Building the Manual
 --------
 
 0. Build the OCaml compiler (including the native one) from sources.
@@ -38,7 +38,7 @@ In the manual:
 
 - The PDF manual is in directory `texstuff` as file `manual.pdf`.
 
-Source files
+Source Files
 ------------
 The manual is written in an extended dialect of LaTeX and is split across many
 source files. During the build process, these source files are converted into
@@ -88,7 +88,7 @@ chapters (or sometimes sections) are mapped to a distinct `.etex` file:
     - The “Tail Modulo Constructor” program transformation: `tail-mod-cons.etex`
     - Runtime detection of data races with ThreadSanitizer: `tsan.etex`
 
-Note that ocamlc, ocamlopt and the toplevel options overlap a lot.
+Note that `ocamlc`, `ocamlopt`, and the toplevel options overlap a lot.
 Consequently, these options are described together in the file
 `unified-options.etex` and then included from `comp.etex`, `native.etex`,
 and `top.etex`. If you need to update this list of options, the top comment
@@ -100,8 +100,8 @@ of `unified-options.etex` contains the relevant information.
     - The core library: `core.etex`
     - The standard library: `stdlib-blurb.etex`
     - The compiler front-end: `compilerlibs.etex`
-    - The unix library: Unix system calls: `libunix.etex`
-    - The str library: regular expressions and string processing: `libstr.etex`
+    - The Unix library: Unix system calls: `libunix.etex`
+    - The `str` library: regular expressions and string processing: `libstr.etex`
     - The threads library: `libthreads.etex`
     - The runtime_events library: `libruntime_events.etex`
     - The dynlink library: dynamic loading and linking of object files:
@@ -109,13 +109,13 @@ of `unified-options.etex` contains the relevant information.
     - Recently removed or moved libraries (Graphics, Bigarray, Num, LablTk):
       `old.etex`
 
-Latex extensions
+Latex Extensions
 ----------------
 
 ### Sections (and subsections, and subsubsections)
 
 In order to provide stable links to all part of the manual, the standard
-`\section`, `\subsection` and `\subsubsection` macros are replaced by
+`\section`, `\subsection`, and `\subsubsection` macros are replaced by
 variants that take the section label as their first argument.
 For instance, in the manual, you have to write
 ```latex
@@ -125,20 +125,20 @@ rather than
 ```latex
 \section{Basics\label{s:basics}}
 ```
-This restriction ensures that hevea picks the section label when generating the
-header ids.
+This restriction ensures that HEVEA picks the section label when generating the
+header IDs.
 
 A similar macro, `\lparagraph`, is provided for paragraphs.
 
-### Caml environments
+### Caml Environments
 
 The tool `tools/ocamltex` is used to generate the LaTeX code for the examples
 in the introduction and language extension parts of the manual. It implements
 two pseudo-environments: `caml_example` and `caml_eval`.
 
-The pseudo-environment `caml_example` evaluates its contents using an ocaml
+The pseudo-environment `caml_example` evaluates its contents using an OCaml
 interpreter and then translates both the input code and the interpreter output
-to LaTeX code, e.g.
+to LaTeX code, e.g.,
 ```latex
 \begin{caml_example}{toplevel}
 let f x = x;;
@@ -152,12 +152,12 @@ let f x = x
 ```
 
 The {verbatim} or {toplevel} argument of the environment corresponds to the mode
-of the example. Three modes are available -- toplevel, verbatim and signature.
+of the example. Three modes are available -- toplevel, verbatim, and signature.
 The `toplevel` mode mimics the appearance and behavior of the toplevel. In
 particular, toplevel examples must end with a double semi-colon `;;`, otherwise
 an error would be raised. The `verbatim` does not require a final `;;` and is
 intended to be a lighter mode for code examples. If you want to declare a
-signature instead of ocaml code, you must use the `{signature}` argument to the
+signature instead of OCaml code, you must use the `{signature}` argument to the
 `caml_example` environment.
 
 ```latex
@@ -223,20 +223,20 @@ let pi = 4. *. atan 1.;;
 let f x = x +. pi;;
 \end{caml_example}
 ```
-Beware that the detection code for these pseudo-environments is quite brittle
+Beware that the detection code for these pseudo-environments is quite brittle,
 and the environments must start and end at the beginning of the line.
 
 ### Quoting
 
 The tool `tools/texquote2` provides support for verbatim-like quotes using
-`\"` delimiters. More precisely, outside of caml environments and verbatim
+`\"` delimiters. More precisely, outside of Caml environments and verbatim
 environments, `texquote2` translates double quotes `"text"` to
 `\machine{escaped_text}`.
 
-### BNF grammar notation
+### BNF Grammar Notation
 
 The tool `tools/transf` provides support for BNF grammar notations and special
-quotes for non-terminal. When transf is used, the environment `syntax` can
+quotes for non-terminal. When `transf` is used, the environment `syntax` can
 be used to describe grammars using BNF notation:
 ```latex
 \begin{syntax}
@@ -261,11 +261,11 @@ Moreover, outside of the syntax environment, `@`-quotes can be used
 to introduce fragment of grammar: `@'(' module-expr ')'@`. As a consequence,
 when this extension is used `@` characters must be escaped as `\@`.
 This extension is used mainly in the language reference part of the manual.
-and a more complete description of the notation used is available in the
+A more complete description of the notation used is available in the
 first subsection of `refman/refman.etex`.
 
-Consistency tests
+Consistency Tests
 -----------------
 
-The `tests` folder contains consistency tests that checks that the manual
+The `tests` folder contains consistency tests that checks that the manual,
 and the rest of the compiler sources stay synced.
