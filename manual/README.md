@@ -44,10 +44,10 @@ The manual is written in an extended dialect of LaTeX and is split across many
 source files. During the build process, these source files are converted into
 classical LaTeX files using the tools available in the `manual/tools`
 directory. These files are then converted to the different output
-formats using either LaTeX or hevea.
+formats using either LaTeX or HeVeA.
 
 Each part of the manual corresponds to a specific directory, and each distinct
-chapters (or sometimes sections) are mapped to a distinct `.etex` file:
+chapter (or sometimes sections) are mapped to a distinct `.etex` file:
 
 - Part I, Introduction to OCaml: `tutorials`
   - The core language: `coreexamples.etex`
