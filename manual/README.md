@@ -57,7 +57,7 @@ chapter (or sometimes sections) are mapped to a distinct `.etex` file:
   - Advanced examples with classes and modules: `advexamples.etex`
 
 - Part II, The OCaml language: `refman`
-  This part is divided in two very distinct chapters; the
+  This part is divided in two distinct chapters; the
   `OCaml language` chapter and the `Language extensions` chapter.
 
   - The OCaml language: `refman.etex`
