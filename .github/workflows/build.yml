@@ -191,6 +191,7 @@ jobs:
           # Support oldest possible version
           sudo xcode-select -s /Applications/Xcode_14.3.1.app/Contents/Developer
           export MACOSX_DEPLOYMENT_TARGET=13.3
+          brew reinstall zstd
           # Select latest supported version
           # sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
           lldb --version
