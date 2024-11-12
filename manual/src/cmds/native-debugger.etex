@@ -3,33 +3,33 @@
 
 \section{s:native-debugger-preliminaries}{Preliminaries}
 
-This chapter describes the support for debugging executables built with \texttt{ocamlopt}, the native-code compiler, using GDB or LLDB on Linux, macOS, and FreeBSD. We will call this \texttt{native debugging}, compared to bytecode debugging supported via \texttt{ocamldebug} (see chapter~\ref{c:debugger}).
+This chapter describes the support for debugging executables built with \texttt{ocamlopt}, the native-code compiler, using GDB or LLDB on Linux, macOS, and FreeBSD. We will call this \texttt{native debugging}, in contrastto bytecode debugging supported via \texttt{ocamldebug} (see chapter~\ref{c:debugger}).
 
 \subsection{ss:native-debugger-dwarf}{DWARF}
 
 The OCaml compiler uses the \href{http://dwarfstd.org/}{DWARF} debugging information file format to describe the debug information it generates. DWARF is a debugging information file format used by many compilers and debuggers to support source level debugging, and it is used by Linux ELF, macOS Mach-O and FreeBSD ELF.
 
-Within the DWARF standard the compiler specifically uses Call Frame Information (hereafter abbreviated as CFI) to describe a call stack for OCaml code, sections of the runtime written in C, and across the Foreign Function Interface (FFI) if the language provides CFI information. (If the language has been compiled to include CFI information).
+Within the DWARF standard, the compiler specifically uses Call Frame Information (CFI) to describe a call stack for OCaml code, sections of the runtime written in C, and across the Foreign Function Interface (FFI) if the language provides CFI information. (If the language has been compiled to include CFI information).
 
 OCaml defines its own calling convention that details how arguments are passed to functions, how values are returned and how registers are used. The calling convention is architecture specific and differs from the C calling convention. See [proc.ml] for specific details for your chosen architecture.
 
-The OCaml compiler generates line information that maps instructions back to their location in the source program (e.g. the instruction at address \texttt{0x00} originated from \texttt{myprogram.ml} line 42). This allows native debuggers to display the OCaml source code for the program being debugged and enables stepping through OCaml source code.
+The OCaml compiler generates line information that maps instructions back to their source program location (e.g., the instruction at address \texttt{0x00} originated from \texttt{myprogram.ml} line 42). This allows native debuggers to display the OCaml source code for the program being debugged and enables stepping through OCaml source code.
 
-Debuggers often need to view or modify the state of any function that is on the call stack, CFI allows the native debugger to find and inspect this state. CFI information is preserved across the OCaml / C boundary so the OCaml runtime can be debugged.
+Debuggers often need to view or modify the state of any function on the call stack, CFI allows the native debugger to find and inspect this state. CFI information is preserved across the OCaml / C boundary, so the OCaml runtime can be debugged.
 
 \subsection{ss:native-debugger-name-mangling}{Name Mangling}
 
-Name mangling is the process for describing how the OCaml compiler generates symbol names for OCaml language constructs. The format of these symbols is important for debuggers, performance and observability tools, to uniquely identify the source function for a symbol and to do so without reference to the original source code. In the absence of source mappings, you often need to use mangled names to set breakpoints or they will appear in the information the native debugger will display. As such knowing how OCaml performs name mangling is important when debugging OCaml programs. OCaml 5.1.1 uses the a name mangling scheme of \texttt{caml<MODULE_NAME>.<FUNCTION_NAME>_<NNN>} where \texttt{NNN} is a randomly generated number. Before 5.1.1 the scheme is uses two underscores as the separator, e.g. \texttt{caml<MODULE_NAME>__<FUNCTION_NAME>_<NNN>}.
+Name mangling describes how the OCaml compiler generates symbol names for OCaml language constructs. The format of these symbols is important for debuggers, performance, and observability tools to uniquely identify the source function for a symbol without referencing the original source code. Without source mappings, you often need to use mangled names to set breakpoints; otherwise they will appear in the information the native debugger displays. Understanding OCaml's name mangling is therefore essential when debugging OCaml programs. OCaml 5.1.1 uses the a name mangling scheme of \texttt{caml<MODULE_NAME>.<FUNCTION_NAME>_<NNN>}, where \texttt{NNN} is a randomly generated number. Before 5.1.1 the scheme is uses two underscores as the separator, e.g., \texttt{caml<MODULE_NAME>__<FUNCTION_NAME>_<NNN>}.
 
-\paragraph{Note:} For the Windows MSVC port (restored in OCaml 5.3) the scheme uses \texttt{\$} as the separator, e.g. \texttt{caml<MODULE_NAME>\$<FUNCTION_NAME>_<NNN>}.
+\paragraph{Note:} For the Windows MSVC port (restored in OCaml 5.3), the scheme uses \texttt{\$} as the separator, e.g., \texttt{caml<MODULE_NAME>\$<FUNCTION_NAME>_<NNN>}.
 
 \subsection{ss:native-debugger-frame-pointers}{Frame Pointers}
 
-The OCaml native compiler supports generating frame pointers, which can be used by a native debugger to walk the stack of function calls in a program. The frame pointer (also known as the base pointer) is a register (e.g. \texttt{\%rbp} on x86_64 or \texttt{x29} on ARM64) that points to the base of the current stack frame. The stack frame (also known as the activation frame or the activation record) refers to the portion of the stack allocated to a single function call. By saving the frame pointer along with the return address the call stack for OCaml can be maintained. Using frame pointers only, without CFI enabled, it is possible to debug OCaml programs, however the experience is closer to debugging assembly and using DWARF with CFI is recommended.
+The OCaml native compiler supports generating frame pointers, which native debugger can use to walk the stack of function calls in a program. The frame pointer (also known as the base pointer) is a register (e.g., \texttt{\%rbp} on x86_64 or \texttt{x29} on ARM64) that points to the base of the current stack frame. The stack frame (also known as the activation frame or the activation record) refers to the portion of the stack allocated to a single function call. By saving the frame pointer along with the return address, the call stack for OCaml can be maintained. Using frame pointers only, without CFI enabled, it is possible to debug OCaml programs, however the experience is closer to debugging assembly and using DWARF with CFI is recommended. 
 
 \section{s:native-debugger-compilation}{Compiling for debugging}
 
-Before debugging OCaml programs, first the native compiler \texttt{ocamlopt} must be installed with CFI emission enabled. CFI emission is controlled by the \texttt{--enable-cfi} flag and is enabled by default. This is sufficient to allow debugging the assembly code generated by \texttt{ocamlopt}. To perform source level debugging code need to be compiled with \texttt{-g} flag that records debugging information for exception backtraces, and generates mappings between assembly and source locations in OCaml. (Note only GDB and LLDB on Linux reliably support source locations).
+Before debugging OCaml programs, first the native compiler \texttt{ocamlopt} must be installed with CFI emission enabled. CFI emission is controlled by the \texttt{--enable-cfi} flag and is enabled by default. This allows debugging the assembly code generated by \texttt{ocamlopt}. To perform source-level debugging, compile code with the \texttt{-g} flag, which records debugging information for exception backtraces and generates mappings between assembly and source locations in OCaml. (Note only GDB and LLDB on Linux reliably support source locations).
 
 \section{s:native-debugger-gdb}{Using GDB}
 Here we walk through debugging a simple OCaml program using GDB on Linux, showing the commands to use and the expected outputs.
@@ -49,7 +49,7 @@ let main () =
 let _ = main ()
 \end{caml_example*}
 
-Compile this program with ocamlopt like so:
+Compile this program with \texttt{ocamlopt} like so:
 
 \begin{verbatim}
 $ ocamlopt -g -o fib.exe fib.ml
@@ -57,14 +57,14 @@ $ ./fib.exe 20
 fib(20) = 6765
 \end{verbatim}
 
-When run this program prints the 20th Fibonnaci number. The use of recursion is an excuse to inspect the call stack. To so so, startup a GDB session for this program:
+When run this program prints the 20th Fibonacci number. The use of recursion is an excuse to inspect the call stack. To do so, startup a GDB session for this program:
 
 \begin{verbatim}
 $ gdb ./fib.exe
 ...
 \end{verbatim}
 
-Break points can be set either using the mangled names produced by the compiler or a combination of file name and line number. For example:
+Breakpoints can be set using either the mangled names produced by the compiler or a combination of file name and line number. For example:
 
 \begin{verbatim}
 (gdb) break camlFib.fib_     # press tab
@@ -105,7 +105,7 @@ Breakpoint 1, camlFib.fib_270 () at fib.ml:2
 #10 0x000055555558e892 in main (argc=<optimised out>, argv=<optimised out>) at runtime/main.c:37
 \end{verbatim}
 
-There is basic support for printing OCaml values using \href{https://github.com/ocaml/ocaml/blob/5.4.0/tools/gdb.py}{tools/gdb.py} and the built in Python scripting in GDB. Download that file and load it into GDB like so:
+There is basic support for printing OCaml values using \href{https://github.com/ocaml/ocaml/blob/5.4.0/tools/gdb.py}{tools/gdb.py} and the built-in Python scripting in GDB. Download that file and load it into GDB like so:
 
 \begin{verbatim}
 (gdb) source ~/ocaml/tools/gdb.py
@@ -133,7 +133,7 @@ let main a b =
 let _ = main "foo" {s = "bar"; i = 42}
 \end{caml_example*}
 
-Compile this program with ocamlopt like so and load it into GDB:
+Compile this program with \texttt{ocamlopt} and load it into GDB:
 
 \begin{verbatim}
 $ ocamlopt -g -o test_blocks.exe test_blocks.ml
@@ -160,10 +160,10 @@ Note the use of x86_64 register names: : \texttt{\$rax} and \texttt{\$rbx}. We c
 Summary of interesting OCaml specific GDB commands:
 \begin{options}
 \item["break "\var{locspec}]
-Set a breakpoint at all of the code locations matching \var{locspec}, e.g. using the mangled OCaml names or specifying the linenum in the source file as \texttt{filename:linenum}.
+Set a breakpoint at all of the code locations matching \var{locspec}, e.g., using the mangled OCaml names or specifying the linenum in the source file as \texttt{filename:linenum}.
 
 \item["backtrace"]
-Print the backtrace of the entire stack. This will include OCaml source references identifying which stack frame maps to a source location, e.g. \texttt{fib.ml:4}.
+Print the backtrace of the entire stack. This will include OCaml source references identifying which stack frame maps to a source location, e.g., \texttt{fib.ml:4}.
 
 \item["disassemble "\var{addresses}]
 Display a range of \var{addresses} as machine instructions. Typically used with the mangled OCaml names to display the assembly for a function. 
@@ -176,7 +176,7 @@ Print lines centered around line number \var{linenum} in the current source file
 
 \end{options}
 
-See the \href{https://sourceware.org/gdb/current/onlinedocs/gdb.html/}{Debugging with GDB} documentation for more details. In general only the features described above are expected to work in GDB and otherwise users will need to fall back to assembly debugging. GDB is expected to work on all supported Linux architectures.
+See the \href{https://sourceware.org/gdb/current/onlinedocs/gdb.html/}{Debugging with GDB} documentation for more details. In general only the features described above should work in GDB. Otherwise, users will need to fall back to assembly debugging. GDB is expected to work on all supported Linux architectures.
 
 \section{s:native-debugger-lldb}{Using LLDB}
 
@@ -213,7 +213,7 @@ Process 11391 stopped
    8   	  let r = fib 20 in 
    9   	  Printf.printf "fib(20) = %d" r
    10  	
-warning: This version of LLDB has no plugin for the language "assembler". Inspection of frame variables will be limited.
+warning: This version of LLDB has no plugin for the language "assembler." Inspection of frame variables will be limited.
 (lldb) bt                # Print the backtrace
 * thread #1, name = 'fib.exe', stop reason = breakpoint 2.1
   * frame #0: 0x0000aaaaaaaf1088 fib.exe`camlFib.main_272 at fib.ml:7
@@ -229,7 +229,7 @@ warning: This version of LLDB has no plugin for the language "assembler". Inspec
 (lldb) 
 \end{verbatim}
 
-There is basic support for printing OCaml values using \href{https://github.com/ocaml/ocaml/blob/5.3.0/tools/lldb.py}{tools/lldb.py} and the built in Python scripting in LLDB. Download that file and load it into LLDB like so:
+There is basic support for printing OCaml values using \href{https://github.com/ocaml/ocaml/blob/5.3.0/tools/lldb.py}{tools/lldb.py} and the built-in Python scripting in LLDB. Download that file and load it into LLDB like so:
 
 \begin{verbatim}
 (lldb) command script import ~/ocaml/tools/lldb.py
@@ -241,7 +241,7 @@ heap exploration (see 'help ocaml' for more information).
 (lldb) 
 \end{verbatim}
 
-Note above we are using an ARM64 Linux machine so our first argument is passed in the first register \texttt{x0}.
+Note: above we are using an ARM64 Linux machine, so our first argument is passed in the first register \texttt{x0}.
 
 We can also print out all kinds of OCaml values. Reusing the `test_blocks.exe` startup a new LLDB session:
 
@@ -269,7 +269,7 @@ Summary of interesting OCaml specific LLDB commands:
 Set a breakpoint at code location matching \var{symbol}, e.g, using the mangled OCaml name.
 
 \item["breakpoint set -f "\var{filename}" -l"\var{linenum}]
-Set a breakpoint at \var{linenum} in \var{filename}, e.g. \texttt{fib.ml:7}
+Set a breakpoint at \var{linenum} in \var{filename}, e.g., \texttt{fib.ml:7}
 
 \item["breakpoint set -a "\var{address}]
 Set a breakpoint on a memory \var{address}.
