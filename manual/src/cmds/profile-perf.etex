@@ -3,7 +3,7 @@
 
 This chapter describes how to use \texttt{perf} to profile OCaml programs.
 
-Linux Performance Events (\texttt{perf (1)}) is a suite of tools for performance observability, including CPU performance counter profiling, and static and dynamic tracing. The main features covered here are \texttt{perf-record(1)} for recording events, and \texttt{perf-report(1)} for printing and visualising recorded events. Perf has many additional profiling and visualising features, see (\texttt{perf(1)}, \href{https://perfwiki.github.io/main/}{Perf wiki} or \href{https://www.brendangregg.com/perf.html}{Brendan Gregg's Blog}) for more comprehensive documentation.
+Linux Performance Events (\texttt{perf (1)}) is a suite of tools for performance observability, including CPU performance counter profiling, and static and dynamic tracing. The main features covered here are \texttt{perf-record(1)} for recording events and \texttt{perf-report(1)} for printing and visualising recorded events. Perf has many additional profiling and visualising features, see (\texttt{perf(1)}, \href{https://perfwiki.github.io/main/}{Perf wiki} or \href{https://www.brendangregg.com/perf.html}{Brendan Gregg's Blog}) for more comprehensive documentation.
 
 \section{s:ocamlperf-call-graph}{Background}
 
@@ -18,13 +18,13 @@ Of those options it is recommended to use frame pointers when profiling OCaml co
 \begin{itemize}
 \item unwinding is faster using less CPU.
 \item trace files produced are smaller.
-\item frame pointers gives more accurate call graphs, especially when combined with a Linux distribution that enables frame pointers.
+\item frame pointers give more accurate call graphs, especially when combined with a Linux distribution that enables frame pointers.
 \item frame pointers work better with OCaml 5's non-contiguous stacks.
 \end{itemize}
 
 Frame Pointer based call graphs use a convention where the head of the list of stack frames can be found in a register called the frame pointer (e.g., \%rbp on x86_64), a pointer to the previous stack frame is saved at a known offset from the frame pointer, and the return address is also saved at a known offset. This linked list of stack frames is then used to walk the call stack. OCaml 5 features non-contiguous stacks as part of the implementation of effects, see \href{https://dl.acm.org/doi/10.1145/3453483.3454039}{Retrofitting effect handlers onto OCaml} (Section 5.5).
 
-Frame pointer based call graphs use a convention where the head of the linked list of stack frames can be found in a register called the frame pointer (e.g., \$rbp on x86_64), and two pointers to the previous stack frame and the return address are saved at a know offset from the frame pointer. This linked list of stack frames is then used to walk the stack of called functions. OCaml 5 features non-contiguous stacks as part of the implementation of effects, see \href{https://dl.acm.org/doi/10.1145/3453483.3454039}{Retrofitting effect handlers onto OCaml} (Section 5.5).
+Frame pointer based call graphs use a convention where the head of the linked list of stack frames can be found in a register called the frame pointer (e.g., \$rbp on x86_64), and two pointers to the previous stack frame and the return address are saved at a known offset from the frame pointer. This linked list of stack frames is then used to walk the stack of called functions. OCaml 5 features non-contiguous stacks as part of the implementation of effects, see \href{https://dl.acm.org/doi/10.1145/3453483.3454039}{Retrofitting effect handlers onto OCaml} (Section 5.5).
 
 DWARF based call graphs use the DWARF CFI information to perform unwinding. However this produces larger trace files that are more costly to capture and are often truncated because \texttt{perf} has not copied enough of the call stack. It also requires including debugging information in your program resulting in larger binaries.
 
