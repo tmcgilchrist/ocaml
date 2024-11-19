@@ -14,7 +14,7 @@ CPU profiling is typically performed by sampling the CPU stack trace at frequent
 \item Hardware Last Branch Record (LBR).
 \end{itemize}
 
-Of those options it is recommended to use frame pointers when profiling OCaml code for the following reasons:
+Of these options, frame pointers are recommended for profiling OCaml code for the following:
 \begin{itemize}
 \item Unwinding is faster and uses less CPU.
 \item Trace files produced are smaller.
