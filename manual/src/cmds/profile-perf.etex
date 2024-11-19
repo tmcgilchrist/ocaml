@@ -7,30 +7,32 @@ Linux Performance Events (\texttt{perf (1)}) is a suite of tools for performance
 
 \section{s:ocamlperf-call-graph}{Background}
 
-\texttt{perf record --call-graph} has multiple options available for recording call graphs:
+CPU profiling is typically performed by sampling the CPU stack trace at frequent intervals to gather statistics on the code paths that are consuming CPU resources. To profile OCaml code, \texttt{perf} needs to understand the call graph of OCaml. Perf supports multiple options for recording call graphs:
 \begin{itemize}
-\item Frame Pointers, the default.
+\item Frame Pointers, which is the default.
 \item DWARF's Call Frame Information (CFI).
 \item Hardware Last Branch Record (LBR).
 \end{itemize}
 
-Of those options it is generally recommended to use frame pointers when profiling OCaml code for the following reasons:
+Of those options it is recommended to use frame pointers when profiling OCaml code for the following reasons:
 \begin{itemize}
-\item frame pointer-based unwinding is faster using less CPU.
-\item it produces smaller trace files.
+\item unwinding is faster using less CPU.
+\item trace files produced are smaller.
+\item frame pointers gives more accurate call graphs, especially when combined with a Linux distribution that enables frame pointers.
 \item frame pointers work better with OCaml 5's non-contiguous stacks.
-\item it gives more accurate call graphs, especially when combined with a Linux distribution that enables frame pointers.
 \end{itemize}
 
-OCaml 5's non-contiguous stacks that are used in the implementation of effects, mentioned in \href{https://dl.acm.org/doi/10.1145/3453483.3454039}{Retrofitting effect handlers onto OCaml} (Section 5.5).
+Frame Pointer based call graphs use a convention where the head of the list of stack frames can be found in a register called the frame pointer (e.g. \%rbp on x86_64), a pointer to the previous stack frame is saved at a known offset from the frame pointer, and the return address is also saved at a known offset. This linked list of stack frames is then used to walk the call stack. OCaml 5 features non-contiguous stacks as part of the implementation of effects, see \href{https://dl.acm.org/doi/10.1145/3453483.3454039}{Retrofitting effect handlers onto OCaml} (Section 5.5).
 
-DWARF based call graph unwinding produces larger trace files that are more costly to caputre and are often truncated because perf has not copied enough of the call stack. It also requires compiling your program and dependencies with debugging information included resulting in larger binaries.
+Frame pointer based call graphs use a convention where the head of the linked list of stack frames can be found in a register called the frame pointer (e.g. \$rbp on x86_64), and two pointers to the previous stack frame and the return address are saved at a know offset from the frame pointer. This linked list of stack frames is then used to walk the stack of called functions. OCaml 5 features non-contiguous stacks as part of the implementation of effects, see \href{https://dl.acm.org/doi/10.1145/3453483.3454039}{Retrofitting effect handlers onto OCaml} (Section 5.5).
 
-Hardware Last Branch Record (LBR) uses a processor provided method to record call graphs, with the dual limitations of restricted availability (only on certain Intel CPUS) and a limited stack depth. The stack depth is 16 on Haswell and 32 since Skylake.
+DWARF based call graphs use the DWARF CFI information to perform unwinding. However this produces larger trace files that are more costly to capture and are often truncated because perf has not copied enough of the call stack. It also requires including debugging information in your program resulting in larger binaries.
+
+Hardware Last Branch Record (LBR) uses a processor provided method to record call graphs. This has the dual limitations of restricted availability (only on certain Intel CPUS) and a limited stack depth. The stack depth is 16 on Haswell and 32 since Skylake.
 
 \section{s:ocamlperf-compiling}{Compiling for Profiling}
 
-The process for compiling an executable for time profiling depends on the OCaml version. For OCaml versions 4.14 and earlier, either frame pointers or DWARF can be used, while for OCaml 5.0 and later, enabling frame pointers is recommended.
+The process for compiling an executable for CPU profiling depends on the OCaml version. For OCaml versions 4.14 and earlier, either frame pointers or DWARF can be used, while for OCaml 5.0 and later, enabling frame pointers is recommended.
 
 To enable frame pointers, configure the compiler with \texttt{--enable-frame-pointers}. Alternatively, you can install an opam switch with frame pointers enabled, as follows:
 
@@ -42,16 +44,16 @@ Frame pointer support for OCaml is available on x86_64 architecture on Linux sta
 
 \section{s:ocamlperf-profiling}{Profiling an Execution}
 
-The basic \texttt{perf} command is:
+The basic \texttt{perf} command for profiling is:
 \begin{verbatim}
         perf record -F 99 --call-graph fp <YOUR_EXECUTABLE>
 \end{verbatim}
 
-The \texttt{-F 99} option tells \texttt{perf} to sample at 99Hz, which avoids generating excessive data for longer runs and is unlikely to be in lockstep with other periodic activities. The \texttt{--call-graph fp} instructs \texttt{perf} to use frame pointers to get the call-graph, followed by the OCaml executable you want to profile. This command creates a \texttt{perf.data} file in the current directory. Alternatively, use \texttt{--output} to choose a more descriptive filename.
+The \texttt{-F 99} option tells \texttt{perf} to sample at 99Hz, which avoids generating excessive data for longer runs and minimising overlap other periodic activities. The \texttt{--call-graph fp} instructs \texttt{perf} to use frame pointers to get the call graph, followed by the OCaml executable you want to profile. This command creates a \texttt{perf.data} file in the current directory. Alternatively use \texttt{--output} to choose a more descriptive filename.
 
-The \texttt{perf record} command works by copying a segment of the call stack at each sample, recording this data into a \texttt{perf.data} file. These samples can then be processed after recording using \texttt{perf report} to reconstruct the profiled program’s call stack at every sample.
+The \texttt{perf record} command works by copying a segment of the call stack at each sample and recording this data into a \texttt{perf.data} file. These samples can then be processed after recording using \texttt{perf report} to reconstruct the profiled program’s call stack at every sample.
 
-\texttt{perf} uses the symbols in an OCaml executable, so it helps to understand OCaml's name mangling scheme to map names to OCaml source locations. Before OCaml 5.1, \texttt{ocamlopt} mangled names using the \texttt{camlModule__identifier_stamp} format; from 5.1 onwards, the separator is a dot: \texttt{camlModule.identifier_stamp}. Both formats are supported by \texttt{perf}.
+\texttt{perf} uses the symbols in an OCaml executable, so it helps to understand OCaml's name mangling scheme to map names to OCaml source locations. Before OCaml 5.1, \texttt{ocamlopt} mangled names used the \texttt{camlModule__identifier_stamp} format; from 5.1 onwards, the separator is a dot \texttt{camlModule.identifier_stamp}. Both formats are supported by \texttt{perf}.
 
 Consider the following program:
 \begin{caml_example*}{verbatim}
@@ -73,15 +75,62 @@ This program produces the names \texttt{camlFib.main_274} for the \texttt{main} 
 
 \section{s:ocamlperf-printing}{Printing profiling information}
 
-The \texttt{perf report} command summarises data in the \texttt{perf.data} file. The basic \texttt{perf report} command is:
+The \texttt{perf report} command summarises data in the \texttt{perf.data} file.
+The basic \texttt{perf report} command is:
 
 \begin{verbatim}
-        perf report -f --no-children perf.data
+        perf report -f --no-children -i perf.data
 \end{verbatim}
 
 This command provides an interactive interface where you can navigate through the accumulated call graphs and select functions and threads for detailed information. Alternatively \texttt{--stdio} will output similar data using a text based report writing to stdout. Note that if stack traces appear broken, it may be due to software not having frame pointer support.
 
-Profile data can be turned into Flame Graphs, a visualisation of hierarchical data, created to visualise stack traces of profiled software so that the most frequent code-paths can be identified quickly and accurately. Use the scripts \texttt{stackcollapse-perf.pl} and \texttt{flamegraph.pl} found at Brendan Gregg's \href{https://www.brendangregg.com/flamegraphs.html}{Flame Graphs} web page as follows:
+Consider the following program which calculates the Tak function.
+\begin{caml_example*}{verbatim}
+let (x,y,z) =
+  try
+    let x = int_of_string Sys.argv.(1) in
+    let y = int_of_string Sys.argv.(2) in
+    let z = int_of_string Sys.argv.(3) in
+    (x,y,z)
+  with _ -> (18,12,6)
+
+let rec tak x y z =
+  if x > y then
+    tak (tak (x-1) y z) (tak (y-1) z x) (tak (z-1) x y)
+  else z
+
+let main () =
+  let r = tak x y z in
+  Printf.printf "tak %d %d %d = %d\n" x y z r
+
+let _ = main ()
+\end{caml_example*}
+
+The perf report for this might resemble the following.
+\begin{verbatim}
+Samples: 809  of event 'cycles', Event count (approx.): 24701952617
+  Overhead  Command     Shared Object      Symbol
+-  100.00%  tak-fp.exe  tak-fp.exe         [.] Tak$tak_402
+     Tak$tak_402
+     Tak$tak_402
+     Tak$tak_402
+     Tak$tak_402
+     Tak$tak_402
+     Tak$tak_402
+     Tak$tak_402
+     Tak$tak_402
+     Tak$tak_402
+     Tak$tak_402
+     Tak$tak_402
+     Tak$tak_402
+     Tak$tak_402
+     Tak$tak_402
+   + Tak$tak_402
+     0.00%  tak-fp.exe  [kernel.kallsyms]  [k] 0xffffb9a5ff79d854
+     0.00%  perf-exec   [kernel.kallsyms]  [k] 0xffffb9a5ff719c34
+\end{verbatim}
+
+Profiling data can alse be visualised as Flame Graphs, which highlight the most frequent code paths in stack traces. Use the scripts \texttt{stackcollapse-perf.pl} and \texttt{flamegraph.pl} found at Brendan Gregg's \href{https://www.brendangregg.com/flamegraphs.html}{Flame Graphs} web page as follows:
 
 \begin{verbatim}
         git clone https://github.com/brendangregg/FlameGraph
@@ -92,13 +141,25 @@ Profile data can be turned into Flame Graphs, a visualisation of hierarchical da
         perf script | ./stackcollapse-perf.pl out.folded
         flamegraph.pl out.folded > out.svg ## Create the FlameGraph svg
 \end{verbatim}
+Alternatively \href{https://github.com/jonhoo/inferno}{inferno} is a Rust port of the Flame Graphs tools.
 
-Some \textttt{perf} tools (e.g., \texttt{perf-report(1)} and \texttt{perf-annotate(1)}) use DWARF debugging symbols to associate symbols with source code locations, if you need these features, recompile with \texttt{-g} to include debugging information in the executable.
+Some \texttt{perf} tools (e.g., \texttt{perf-report(1)} and \texttt{perf-annotate(1)}) use DWARF debugging symbols to associate symbols with source code locations, if you need these features, recompile with \texttt{-g} to include debugging information in the executable.
 
-Captured profile data can also be processed by \texttt{perf script} in a number of other ways or with online tools like \href{https://www.speedscope.app}{speedscope.app} and \href{https://profiler.firefox.com/}{profiler.firefox.com}, or any other tool that accepts Linux \texttt{perf}-formatted data.
+Captured profile data can also be processed by \texttt{perf script} in a number of other ways or with online tools like \href{https://www.speedscope.app}{speedscope.app} and \href{https://profiler.firefox.com/}{profiler.firefox.com}, or any other tool that accepts perf-formatted data.
 
 \section{s:ocamlperf-conclusion}{Conclusion}
 
 For time profiling of native code, standard tools such as \texttt{perf}, eBPF, DTrace, or Instruments (on macOS) are recommended. Compiling with frame pointers enabled is often necessary for these tools to work effectively. Profiling with \texttt{gprof} is no longer supported.
 
-Enabling frame pointers may introduce a performance penalty on certain architectures (up to 10\% performance cost on x86_64 has been measured). Users of this feature are encouraged to benchmark their own applications to assess this impact.
+Enabling frame pointers can impact performance on certain architectures (up to 10\% performance cost on x86_64 has been measured). Users of this feature are encouraged to benchmark their own applications to assess this impact.
+
+\section{s:ocamlperf-glossary}{Glossary}
+
+The following terminology is used in this chapter of the manual.
+
+\begin{itemize}
+\item[{\bf Call graph}] The chain of function calls that have lead to the current function (aka call stack, backtrace or stack trace).
+\item[{\bf Stack backtrace}] Used in the context of exceptions, refering to producing a stack backtrace of where the exception was raised.
+\item[{\bf Unwinding}] The process of restoring the program's state to how it was before some function(s) were called and possibly giving a profiler or debugger much more information. (aka stack unwinding).
+\item[{\bf Stack frame}] TODO
+\end{itemize}
