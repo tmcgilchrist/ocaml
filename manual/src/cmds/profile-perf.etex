@@ -129,20 +129,27 @@ Samples: 809  of event 'cycles', Event count (approx.): 24701952617
      0.00%  perf-exec   [kernel.kallsyms]  [k] 0xffffb9a5ff719c34
 \end{verbatim}
 
-Profiling data can also be visualised as Flame Graphs, which highlight the most frequent code paths in stack traces. Use the scripts \texttt{stackcollapse-perf.pl} and \texttt{flamegraph.pl} found at Brendan Gregg's \href{https://www.brendangregg.com/flamegraphs.html}{Flame Graphs} web page as follows:
-
-https://github.com/jonhoo/inferno
+Profiling data can also be visualised as Flame Graphs, which highlight the most frequent code paths in stack traces. The original scripts scripts \texttt{stackcollapse-perf.pl} and \texttt{flamegraph.pl} can be found at Brendan Gregg's \href{https://www.brendangregg.com/flamegraphs.html}{Flame Graphs} web page and work as follows:
 
 \begin{verbatim}
-        git clone https://github.com/brendangregg/FlameGraph
-        cd FlameGraph
+git clone https://github.com/brendangregg/FlameGraph
+cd FlameGraph
 
-        # Collect the results into perf.data
-        perf record -F 99 --call-graph fp <YOUR_EXECUTABLE>
-        perf script | ./stackcollapse-perf.pl out.folded
-        flamegraph.pl out.folded > out.svg ## Create the FlameGraph svg
+# Collect the results into perf.data
+perf record -F 99 --call-graph fp <YOUR_EXECUTABLE>
+perf script -i perf.data | ./stackcollapse-perf.pl out.folded
+flamegraph.pl out.folded > flamegraph.svg ## Create the FlameGraph svg
 \end{verbatim}
-Alternatively \href{https://github.com/jonhoo/inferno}{inferno} is a Rust port of the Flame Graphs tools.
+
+Alternatively \href{https://github.com/jonhoo/inferno}{inferno} is a Rust port of the Flame Graphs tools which works in a similar way and is faster to process large perf files.
+
+\begin{verbatim}
+cargo install inferno
+
+# Collect the results into perf.data
+perf script -i perf.data | inferno-collapse-perf > stacks.folded
+cat stacks.folded | inferno-flamegraph > flamegraph.svg
+\end{verbatim}
 
 Some \texttt{perf} tools (e.g., \texttt{perf-report(1)} and \texttt{perf-annotate(1)}) use DWARF debugging symbols to associate symbols with source code locations, if you need these features, the program need to be compiled with \texttt{-g} to include debugging information in the executable.
 
