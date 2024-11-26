@@ -47,7 +47,7 @@ The basic \texttt{perf} command for profiling is:
         perf record -F 99 --call-graph fp <YOUR_EXECUTABLE>
 \end{verbatim}
 
-The \texttt{-F 99} option tells \texttt{perf} to sample at 99Hz, which avoids generating excessive data for longer runs and minimising overlap with other periodic activities. The \texttt{--call-graph fp} instructs \texttt{perf} to use frame pointers to get the call graph, followed by the OCaml executable you want to profile. This command creates a \texttt{perf.data} file in the current directory. Alternatively use \texttt{--output} to choose a more descriptive filename.
+The \texttt{-F 99} option sets \texttt{perf} to sample at 99Hz, reducing excessive data generation during longer runs and minimising overlap with other periodic activities. The \texttt{--call-graph fp} instructs \texttt{perf} to use frame pointers to get the call graph, followed by the OCaml executable you want to profile. This command creates a \texttt{perf.data} file in the current directory. Alternatively use \texttt{--output} to choose a more descriptive filename.
 
 The \texttt{perf record} command works by copying a segment of the call stack at each sample and recording this data into a \texttt{perf.data} file. These samples can then be processed after recording using \texttt{perf report} to reconstruct the profiled program’s call stack at every sample.
 
