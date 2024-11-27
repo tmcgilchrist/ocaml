@@ -151,7 +151,7 @@ perf script -i perf.data | inferno-collapse-perf > stacks.folded
 cat stacks.folded | inferno-flamegraph > flamegraph.svg
 \end{verbatim}
 
-Some \texttt{perf} tools (e.g., \texttt{perf-report(1)} and \texttt{perf-annotate(1)}) use DWARF debugging symbols to associate symbols with source code locations, if you need these features, the program need to be compiled with \texttt{-g} to include debugging information in the executable.
+Some \texttt{perf} tools (e.g., \texttt{perf-report(1)} and \texttt{perf-annotate(1)}) use DWARF debugging symbols to associate symbols with source code locations, if you need these features, the program needs to be compiled with \texttt{-g} to include debugging information in the executable.
 
 Captured profile data can also be processed using \texttt{perf script} in various ways or with online tools like \href{https://www.speedscope.app}{speedscope.app} and \href{https://profiler.firefox.com/}{profiler.firefox.com}, or any other tool that supports \texttt{perf}-formatted data.
 
