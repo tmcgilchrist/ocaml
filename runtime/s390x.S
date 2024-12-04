@@ -61,7 +61,7 @@ caml_hot.code_end:
         TEXT_SECTION(name); \
         .globl name; \
         TYPE_DIRECTIVE(name,@function) \
-        name:
+        G(name):
 
 #define ENDFUNCTION(name) \
         SIZE_DIRECTIVE(name)
@@ -70,7 +70,7 @@ caml_hot.code_end:
         .align 8; \
         .globl name; \
         TYPE_DIRECTIVE(name,@object) \
-        name:
+        G(name):
 
 #define ENDOBJECT(name) \
         SIZE_DIRECTIVE(name)
@@ -396,7 +396,7 @@ caml_system__code_begin:
 
 #endif /* } */
 
-FUNCTION(G(caml_call_realloc_stack))
+FUNCTION(caml_call_realloc_stack)
 CFI_STARTPROC
         CFI_SIGNAL_FRAME
         ENTER_FUNCTION
@@ -424,9 +424,9 @@ LBL(120):
         LEA_VAR(caml_exn_Stack_overflow, %r2)
         brcl    15, GCALL(caml_raise_exn)
 CFI_ENDPROC
-ENDFUNCTION(G(caml_call_realloc_stack))
+ENDFUNCTION(caml_call_realloc_stack)
 
-FUNCTION(G(caml_call_gc))
+FUNCTION(caml_call_gc)
 CFI_STARTPROC
 LBL(caml_call_gc):
         CFI_SIGNAL_FRAME
@@ -449,42 +449,42 @@ LBL(caml_call_gc):
         LEAVE_FUNCTION
         br      %r14
 CFI_ENDPROC
-ENDFUNCTION(G(caml_call_gc))
+ENDFUNCTION(caml_call_gc)
 
-FUNCTION(G(caml_alloc1))
+FUNCTION(caml_alloc1)
 CFI_STARTPROC
         lay     ALLOC_PTR, -16(ALLOC_PTR)
         clg     ALLOC_PTR, Caml_state(young_limit)
         jl      LBL(caml_call_gc)
         br      %r14
 CFI_ENDPROC
-ENDFUNCTION(G(caml_alloc1))
+ENDFUNCTION(caml_alloc1)
 
-FUNCTION(G(caml_alloc2))
+FUNCTION(caml_alloc2)
 CFI_STARTPROC
         lay     ALLOC_PTR, -24(ALLOC_PTR)
         clg     ALLOC_PTR, Caml_state(young_limit)
         jl      LBL(caml_call_gc)
         br      %r14
 CFI_ENDPROC
-ENDFUNCTION(G(caml_alloc2))
+ENDFUNCTION(caml_alloc2)
 
-FUNCTION(G(caml_alloc3))
+FUNCTION(caml_alloc3)
 CFI_STARTPROC
         lay     ALLOC_PTR, -32(ALLOC_PTR)
         clg     ALLOC_PTR, Caml_state(young_limit)
         jl      LBL(caml_call_gc)
         br      %r14
 CFI_ENDPROC
-ENDFUNCTION(G(caml_alloc3))
+ENDFUNCTION(caml_alloc3)
 
-FUNCTION(G(caml_allocN))
+FUNCTION(caml_allocN)
 CFI_STARTPROC
         clg     ALLOC_PTR, Caml_state(young_limit)
         jl      LBL(caml_call_gc)
         br      %r14
 CFI_ENDPROC
-ENDFUNCTION(G(caml_allocN))
+ENDFUNCTION(caml_allocN)
 
 /******************************************************************************/
 /* Call a C function from OCaml */
@@ -498,7 +498,7 @@ ENDFUNCTION(G(caml_allocN))
         stg     TMP, Caml_state(young_limit);     \
         br      %r14
 
-FUNCTION(G(caml_c_call))
+FUNCTION(caml_c_call)
 CFI_STARTPROC
         CFI_SIGNAL_FRAME
         ENTER_FUNCTION
@@ -536,9 +536,9 @@ LBL(caml_c_call):
         LEAVE_FUNCTION
         RET_FROM_C_CALL
 CFI_ENDPROC
-ENDFUNCTION(G(caml_c_call))
+ENDFUNCTION(caml_c_call)
 
-FUNCTION(G(caml_c_call_stack_args))
+FUNCTION(caml_c_call_stack_args)
 CFI_STARTPROC
         CFI_SIGNAL_FRAME
         ENTER_FUNCTION
@@ -598,13 +598,13 @@ LBL(106):
         LEAVE_FUNCTION
         RET_FROM_C_CALL
 CFI_ENDPROC
-ENDFUNCTION(G(caml_c_call_stack_args))
+ENDFUNCTION(caml_c_call_stack_args)
 
 /******************************************************************************/
 /* Start the OCaml program */
 /******************************************************************************/
 
-FUNCTION(G(caml_start_program))
+FUNCTION(caml_start_program)
 CFI_STARTPROC
 #if defined(WITH_THREAD_SANITIZER)
         lay     %r15, -8(%r15)
@@ -760,7 +760,7 @@ LBL(trap_handler):
         oill     %r2,  2
         j       LBL(return_result)
 CFI_ENDPROC
-ENDFUNCTION(G(caml_start_program))
+ENDFUNCTION(caml_start_program)
 
 /******************************************************************************/
 /* Exceptions */
@@ -775,7 +775,7 @@ ENDFUNCTION(G(caml_start_program))
 
 /* Raise an exception from OCaml */
 
-FUNCTION(G(caml_raise_exn))
+FUNCTION(caml_raise_exn)
 CFI_STARTPROC
 LBL(caml_raise_exn):
         clghsi  Caml_state(backtrace_active), 0
@@ -803,15 +803,15 @@ LBL(caml_reraise_exn_stash):
         lgr     %r2, %r9
         brcl    15, LBL(116)
 CFI_ENDPROC
-ENDFUNCTION(G(caml_raise_exn))
+ENDFUNCTION(caml_raise_exn)
 
-FUNCTION(G(caml_reraise_exn))
+FUNCTION(caml_reraise_exn)
 CFI_STARTPROC
         clghsi  Caml_state(backtrace_active), 0
         jne     LBL(caml_reraise_exn_stash)
         JUMP_TO_TRAP_PTR
 CFI_ENDPROC
-ENDFUNCTION(G(caml_reraise_exn))
+ENDFUNCTION(caml_reraise_exn)
 
 #if defined(WITH_THREAD_SANITIZER)
 /* When TSan support is enabled, this routine should be called just before
@@ -819,7 +819,7 @@ ENDFUNCTION(G(caml_reraise_exn))
    to be exited due to the exception.
    Takes no arguments, clobbers a0, a1, a2 and potentially all
    caller-saved registers of the C calling convention. */
-FUNCTION(G(caml_tsan_exit_on_raise_asm))
+FUNCTION(caml_tsan_exit_on_raise_asm)
 CFI_STARTPROC
         lgr     C_ARG_1, %r14           /* arg1: pc of raise */
         lgr     C_ARG_2, %r15           /* arg2: sp of raise */
@@ -827,12 +827,12 @@ CFI_STARTPROC
         TSAN_C_CALL(caml_tsan_exit_on_raise)
         br      %r14
 CFI_ENDPROC
-ENDFUNCTION(G(caml_tsan_exit_on_raise_asm))
+ENDFUNCTION(caml_tsan_exit_on_raise_asm)
 #endif
 
 /* Raise an exception from C */
 
-FUNCTION(G(caml_raise_exception))
+FUNCTION(caml_raise_exception)
 CFI_STARTPROC
     /* Load the domain state ptr */
         lgr     DOMAIN_STATE_PTR, C_ARG_1
@@ -866,13 +866,13 @@ CFI_STARTPROC
         LEAVE_FUNCTION
         brcl    15, LBL(caml_raise_exn)
 CFI_ENDPROC
-ENDFUNCTION(G(caml_raise_exception))
+ENDFUNCTION(caml_raise_exception)
 
 /******************************************************************************/
 /* Callback from C to OCaml */
 /******************************************************************************/
 
-FUNCTION(G(caml_callback_asm))
+FUNCTION(caml_callback_asm)
 CFI_STARTPROC
 #if defined(WITH_THREAD_SANITIZER)
     /* Save non-callee-saved registers r2, r3, r4 and r14 before C call */
@@ -899,9 +899,9 @@ CFI_STARTPROC
         lg      TMP,     0(C_ARG_2)  /* code pointer */
         brcl    15, LBL(caml_start_program)
 CFI_ENDPROC
-ENDFUNCTION(G(caml_callback_asm))
+ENDFUNCTION(caml_callback_asm)
 
-FUNCTION(G(caml_callback2_asm))
+FUNCTION(caml_callback2_asm)
 CFI_STARTPROC
 #if defined(WITH_THREAD_SANITIZER)
     /* Save non-callee-saved registers r2, r3, r4 and r14 before C call */
@@ -930,9 +930,9 @@ CFI_STARTPROC
         LEA_VAR(caml_apply2, TMP)   /* code pointer */
         brcl    15, LBL(caml_start_program)
 CFI_ENDPROC
-ENDFUNCTION(G(caml_callback2_asm))
+ENDFUNCTION(caml_callback2_asm)
 
-FUNCTION(G(caml_callback3_asm))
+FUNCTION(caml_callback3_asm)
 CFI_STARTPROC
 #if defined(WITH_THREAD_SANITIZER)
     /* Save non-callee-saved registers r2, r3, r4 and r14 before C call */
@@ -962,7 +962,7 @@ CFI_STARTPROC
         LEA_VAR(caml_apply3, TMP)       /* code pointer */
         brcl    15, LBL(caml_start_program)
 CFI_ENDPROC
-ENDFUNCTION(G(caml_callback3_asm))
+ENDFUNCTION(caml_callback3_asm)
 
 /******************************************************************************/
 /* Fibers */
@@ -974,7 +974,7 @@ ENDFUNCTION(G(caml_callback3_asm))
  */
 /******************************************************************************/
 
-FUNCTION(G(caml_perform))
+FUNCTION(caml_perform)
 CFI_STARTPROC
     /*  %r2: effect to perform
         %r3: freshly allocated continuation */
@@ -1050,9 +1050,9 @@ LBL(112):
         LEA_VAR(caml_raise_unhandled_effect, ADDITIONAL_ARG)
         brcl    15, GCALL(caml_c_call)
 CFI_ENDPROC
-ENDFUNCTION(G(caml_perform))
+ENDFUNCTION(caml_perform)
 
-FUNCTION(G(caml_reperform))
+FUNCTION(caml_reperform)
 CFI_STARTPROC
     /*  %r2: effect to reperform
         %r3: continuation
@@ -1063,9 +1063,9 @@ CFI_STARTPROC
         lay     %r5, 1(%r4)  /* %r5 (last_fiber) := Val_ptr(old stack) */
         brcl    15, LBL(do_perform)
 CFI_ENDPROC
-ENDFUNCTION(G(caml_reperform))
+ENDFUNCTION(caml_reperform)
 
-FUNCTION(G(caml_resume))
+FUNCTION(caml_resume)
 CFI_STARTPROC
     /* %r2 -> new fiber, %r3 -> fun, %r4 -> arg, %r5 -> last_fiber */
         lay     %r2, -1(%r2)  /* %r2 (new stack) = Ptr_val(%r2) */
@@ -1117,11 +1117,11 @@ LBL(caml_resume_1):
         LEA_VAR(caml_raise_continuation_already_resumed, ADDITIONAL_ARG)
         brcl    15, GCALL(caml_c_call)
 CFI_ENDPROC
-ENDFUNCTION(G(caml_resume))
+ENDFUNCTION(caml_resume)
 
 /* Run a function on a new stack,
    then invoke either the value or exception handler */
-FUNCTION(G(caml_runstack))
+FUNCTION(caml_runstack)
 CFI_STARTPROC
 #if defined(WITH_THREAD_SANITIZER)
     /* Save non-callee-saved registers r2-r4 */
@@ -1223,9 +1223,9 @@ LBL(fiber_exn_handler):
         lg      %r7, Handler_exception(%r8)
         brcl    15, LBL(caml_runstack_1)
 CFI_ENDPROC
-ENDFUNCTION(G(caml_runstack))
+ENDFUNCTION(caml_runstack)
 
-FUNCTION(G(caml_ml_array_bound_error))
+FUNCTION(caml_ml_array_bound_error)
 CFI_STARTPROC
         ENTER_FUNCTION
     /* No registers require saving before C call to TSan */
@@ -1235,7 +1235,7 @@ CFI_STARTPROC
        has already been adjusted. */
         brcl    15, LBL(caml_c_call)
 CFI_ENDPROC
-ENDFUNCTION(G(caml_ml_array_bound_error))
+ENDFUNCTION(caml_ml_array_bound_error)
 
         TEXT_SECTION(caml_system__code_end)
         .globl  caml_system__code_end
