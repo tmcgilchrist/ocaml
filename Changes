@@ -182,6 +182,9 @@ Working version
 - #13694: Fix name for caml_hash_variant in the C interface.
   (Michael Hendricks)
 
+- #13751: Document support for profiling with Linux perf and frame pointers.
+  (Tim McGilchrist, review by ???)
+
 ### Compiler user-interface and warnings:
 
 - #13428: support dump=[source | parsetree | lambda | ... | cmm | ...]

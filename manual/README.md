@@ -85,6 +85,8 @@ chapters (or sometimes sections) are mapped to a distinct `.etex` file:
     - Optimisation with Flambda: `flambda.etex`
     - Fuzzing with afl-fuzz: `afl-fuzz.etex`
     - Runtime tracing with Runtime_events: `runtime_tracing.etex`
+    - The “Tail Modulo Constructor” program transformation: `tail-mod-cons.etex`
+    - Runtime detection of data races with ThreadSanitizer: `tsan.etex`
 
 Note that ocamlc,ocamlopt and the toplevel options overlap a lot.
 Consequently, these options are described together in the file
@@ -104,6 +106,8 @@ of `unified-options.etex` contains the relevant information.
     - The runtime_events library: `libruntime_events.etex`
     - The dynlink library: dynamic loading and linking of object files:
       `libdynlink.etex`
+    - Recently removed or moved libraries (Graphics, Bigarray, Num, LablTk):
+      `old.etex`
 
 Latex extensions
 ----------------
