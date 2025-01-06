@@ -182,6 +182,9 @@ Working version
 - #13694: Fix name for caml_hash_variant in the C interface.
   (Michael Hendricks)
 
+- #13747: Document support for native debugging with GDB and LLDB.
+   (Tim McGilchrist, review by ???)
+
 ### Compiler user-interface and warnings:
 
 - #13428: support dump=[source | parsetree | lambda | ... | cmm | ...]
