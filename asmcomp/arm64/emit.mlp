@@ -449,27 +449,12 @@ module Size = struct
 
   let offset_pc_at_branch = 0
 
-  let addsub_size n =
-    let m = abs n in
-    assert (m < 0x1_000_000);
-    let ml = m land 0xFFF and mh = m land 0xFFF_000 in
-    max 1 ((if mh <> 0 then 1 else 0) +
-           (if ml <> 0 then 1 else 0))
-
-  let stack_adj_size n =
-    (* see emit_stack_adjustment *)
-    addsub_size n
-
   let prologue_size f =
-    let stk = initial_stack_offset f in
-    (if stk > 0 then stack_adj_size (-stk) else 0)
-    + (if f.fun_frame_required then (if fp then 2 else 1) else 0)
+    (if initial_stack_offset f > 0 then 2 else 0)
+      + (if f.fun_frame_required then (if fp then 2 else 1) else 0)
 
   let epilogue_size f =
-    let stk = initial_stack_offset f in
-    (if stk > 0 then stack_adj_size stk else 0) +
-    (if f.fun_frame_required then 1 else 0) +
-    1
+    if f.fun_frame_required then 3 else 2
 
   let instr_size f = function
     | Lend -> 0
@@ -477,8 +462,7 @@ module Size = struct
     | Lop (Imove | Ispill | Ireload) -> 1
     | Lop (Iconst_int n) ->
       num_instructions_for_intconst n
-    | Lop (Iconst_float f) ->
-       if f = 0L || is_immediate_float f then 1 else 2
+    | Lop (Iconst_float _) -> 2
     | Lop (Iconst_symbol _) -> 2
     | Lop (Icall_ind) -> 1
     | Lop (Icall_imm _) -> 1
@@ -488,8 +472,8 @@ module Size = struct
     | Lop (Iextcall {alloc; stack_ofs} ) ->
       if stack_ofs > 0 then 5
       else if alloc then 3
-      else 5
-    | Lop (Istackoffset n) -> stack_adj_size (-n)
+      else 7
+    | Lop (Istackoffset _) -> 2
     | Lop (Iload  { memory_chunk; addressing_mode; is_atomic }) ->
       let based = match addressing_mode with Iindexed _ -> 0 | Ibased _ -> 1
       and barrier = if is_atomic then 1 else 0
@@ -505,15 +489,13 @@ module Size = struct
       based + barrier + single
     | Lop (Ialloc _) when f.fun_fast -> 5
     | Lop (Ispecific (Ialloc_far _)) when f.fun_fast -> 6
-    | Lop (Ipoll {return_label=None}) -> 3
-    | Lop (Ipoll {return_label=Some _}) -> 4
-    | Lop (Ispecific (Ipoll_far {return_label=None})) -> 4
-    | Lop (Ispecific (Ipoll_far {return_label=Some _})) -> 5
+    | Lop (Ipoll _) -> 3
+    | Lop (Ispecific (Ipoll_far _)) -> 4
     | Lop (Ialloc { bytes = num_bytes; _ })
     | Lop (Ispecific (Ialloc_far { bytes = num_bytes; _ })) ->
       begin match num_bytes with
-      | 16 | 24 | 32 -> 2
-      | _ -> 2 + num_instructions_for_intconst (Nativeint.of_int num_bytes)
+      | 16 | 24 | 32 -> 1
+      | _ -> 1 + num_instructions_for_intconst (Nativeint.of_int num_bytes)
       end
     | Lop (Iintop (Icomp _)) -> 2
     | Lop (Icompf _) -> 2
@@ -526,7 +508,6 @@ module Size = struct
     | Lop (Ispecific (Ishiftcheckbound_far _)) -> 3
     | Lop (Iintop Imod) -> 2
     | Lop (Iintop Imulh) -> 1
-    | Lop (Iintop_imm ((Iadd|Isub), n)) -> addsub_size n
     | Lop (Iintop _) -> 1
     | Lop (Iintop_imm _) -> 1
     | Lop (Ifloatofint | Iintoffloat | Iabsf | Inegf | Ispecific Isqrtf) -> 1
