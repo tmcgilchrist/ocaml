@@ -360,6 +360,10 @@ val siginfo : int
 (** Status request from keyboard
     @since 5.4 *)
 
+val signal_to_string : int -> string
+(** Signal name as a string, based on POSIX names.
+    @since 5.4 *)
+
 exception Break
 (** Exception raised on interactive interrupt if {!Sys.catch_break}
    is enabled. *)
