@@ -344,6 +344,21 @@ val sigxfsz : int
 (** File size limit exceeded
     @since 4.03 *)
 
+val sigemt : int
+(** Emulate instruction executed
+    @since 5.4 *)
+
+val sigio : int
+(** I/O is possible on a descriptor
+    @since 5.4 *)
+
+val sigwinch : int
+(** Window size change
+    @since 5.4 *)
+
+val siginfo : int
+(** Status request from keyboard
+    @since 5.4 *)
 
 exception Break
 (** Exception raised on interactive interrupt if {!Sys.catch_break}
