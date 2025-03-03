@@ -226,138 +226,188 @@ external poll_actions : unit -> unit = "%poll"
 
 
 (** {1 Signal handling} *)
+type signal = ..
+type signal +=
+  | SIGHUP
+  | SIGINT
+  | SIGQUIT
+  | SIGILL
+  | SIGTRAP
+  | SIGABRT
+  | SIGEMT
+  | SIGFPE
+  | SIGKILL
+  | SIGBUS
+  | SIGPOLL
+  | SIGSEGV
+  | SIGSYS
+  | SIGPIPE
+  | SIGALRM
+  | SIGTERM
+  | SIGURG
+  | SIGSTOP
+  | SIGTSTP
+  | SIGCONT
+  | SIGCHLD
+  | SIGTTIN
+  | SIGTTOU
+  | SIGIO
+  | SIGXCPU
+  | SIGXFSZ
+  | SIGVTALRM
+  | SIGPROF
+  | SIGWINCH
+  | SIGINFO
+  | SIGUSR1
+  | SIGUSR2
 
-type signal = int
-
-type signal_behavior =
-    Signal_default
-  | Signal_ignore
-  | Signal_handle of (signal -> unit)   (** *)
+type 'a signal_behavior =
+  | Signal_default : 'a signal_behavior
+  | Signal_ignore : 'a signal_behavior
+  | Signal_handle : (int -> unit) -> int signal_behavior
+  | Signal_general : (signal -> unit) -> signal signal_behavior
 (** What to do when receiving a signal:
    - [Signal_default]: take the default behavior
      (usually: abort the program)
    - [Signal_ignore]: ignore the signal
    - [Signal_handle f]: call function [f], giving it the signal
-   number as argument. *)
+   number as argument.
+   - [Signal_general f]: call function [f], giving it the signal
+   constructor as argument. *)
 
-external signal :
-  signal -> signal_behavior -> signal_behavior = "caml_install_signal_handler"
+(* type signal_behavior = *)
+(*   | Signal_default *)
+(*   | Signal_ignore *)
+(*   | Signal_handle of (int -> unit)   (\** *\) *)
+(* (\** What to do when receiving a signal: *)
+(*    - [Signal_default]: take the default behavior *)
+(*      (usually: abort the program) *)
+(*    - [Signal_ignore]: ignore the signal *)
+(*    - [Signal_handle f]: call function [f], giving it the signal *)
+(*    number as argument. *\) *)
+
+val signal_to_int : signal -> int
+
+val signal : 's -> 's signal_behavior -> 's signal_behavior
+(* external signal : *)
+(*   int -> signal_behavior -> signal_behavior = "caml_install_signal_handler" *)
+
 (** Set the behavior of the system on receipt of a given signal.  The
    first argument is the signal number.  Return the behavior
    previously associated with the signal. If the signal number is
    invalid (or not available on your system), an [Invalid_argument]
    exception is raised. *)
 
-val set_signal : signal -> signal_behavior -> unit
+val set_signal : 's -> 's signal_behavior -> unit
 (** Same as {!Sys.signal} but return value is ignored. *)
 
 
 (** {2 Signal numbers for the standard POSIX signals.} *)
 
-val sigabrt : signal
+val sigabrt : int
 (** Abnormal termination *)
 
-val sigalrm : signal
+val sigalrm : int
 (** Timeout *)
 
-val sigfpe : signal
+val sigfpe : int
 (** Arithmetic exception *)
 
-val sighup : signal
+val sighup : int
 (** Hangup on controlling terminal *)
 
-val sigill : signal
+val sigill : int
 (** Invalid hardware instruction *)
 
-val sigint : signal
+val sigint : int
 (** Interactive interrupt (ctrl-C) *)
 
-val sigkill : signal
+val sigkill : int
 (** Termination (cannot be ignored) *)
 
-val sigpipe : signal
+val sigpipe : int
 (** Broken pipe *)
 
-val sigquit : signal
+val sigquit : int
 (** Signaleractive termination *)
 
-val sigsegv : signal
+val sigsegv : int
 (** Invalid memory reference *)
 
-val sigterm : signal
+val sigterm : int
 (** Termination *)
 
-val sigusr1 : signal
+val sigusr1 : int
 (** Application-defined signal 1 *)
 
-val sigusr2 : signal
+val sigusr2 : int
 (** Application-defined signal 2 *)
 
-val sigchld : signal
+val sigchld : int
 (** Child process terminated *)
 
-val sigcont : signal
+val sigcont : int
 (** Continue *)
 
-val sigstop : signal
+val sigstop : int
 (** Stop *)
 
-val sigtstp : signal
+val sigtstp : int
 (** Signaleractive stop *)
 
-val sigttin : signal
+val sigttin : int
 (** Terminal read from background process *)
 
-val sigttou : signal
+val sigttou : int
 (** Terminal write from background process *)
 
-val sigvtalrm : signal
+val sigvtalrm : int
 (** Timeout in virtual time *)
 
-val sigprof : signal
-(** Profiling signalerrupt *)
+val sigprof : int
+(** Profiling interrupt *)
 
-val sigbus : signal
+val sigbus : int
 (** Bus error
     @since 4.03 *)
 
-val sigpoll : signal
+val sigpoll : int
 (** Pollable event
     @since 4.03 *)
 
-val sigsys : signal
+val sigsys : int
 (** Bad argument to routine
     @since 4.03 *)
 
-val sigtrap : signal
+val sigtrap : int
 (** Trace/breakposignal trap
     @since 4.03 *)
 
-val sigurg : signal
+val sigurg : int
 (** Urgent condition on socket
     @since 4.03 *)
 
-val sigxcpu : signal
+val sigxcpu : int
 (** Timeout in cpu time
     @since 4.03 *)
 
-val sigxfsz : signal
+val sigxfsz : int
 (** File size limit exceeded
     @since 4.03 *)
 
-val sigemt : signal
+val sigemt : int
 (** Emulate instruction executed
     @since 5.4 *)
 
-val sigio : signal
+val sigio : int
 (** I/O is possible on a descriptor
     @since 5.4 *)
 
-val sigwinch : signal
+val sigwinch : int
 (** Window size change
     @since 5.4 *)
 
-val siginfo : signal
+val siginfo : int
 (** Status request from keyboard
     @since 5.4 *)
 

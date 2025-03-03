@@ -44,37 +44,37 @@ let () =
   assert (x == true); (* Should trigger signal_handle for sigio *)
 
   (* Signals should map to POSIX standard names *)
-  let signals = [(sighup, "SIGHUP");
-                 (sigint, "SIGINT");
-                 (sigquit, "SIGQUIT");
-                 (sigill, "SIGILL");
-                 (sigtrap, "SIGTRAP");
-                 (sigabrt, "SIGABRT");
-                 (sigemt, "SIGEMT");
-                 (sigfpe, "SIGFPE");
-                 (sigkill, "SIGKILL");
-                 (sigbus, "SIGBUS");
-                 (sigsegv, "SIGSEGV");
-                 (sigsys, "SIGSYS");
-                 (sigpipe, "SIGPIPE");
-                 (sigalrm, "SIGALRM");
-                 (sigterm, "SIGTERM");
-                 (sigurg, "SIGURG");
-                 (sigstop, "SIGSTOP");
-                 (sigtstp, "SIGTSTP");
-                 (sigcont, "SIGCONT");
-                 (sigchld, "SIGCHLD");
-                 (sigttin, "SIGTTIN");
-                 (sigttou, "SIGTTOU");
-                 (sigio, "SIGIO");
-                 (sigxcpu, "SIGXCPU");
-                 (sigxfsz, "SIGXFSZ");
-                 (sigvtalrm, "SIGVTALRM");
-                 (sigprof, "SIGPROF");
-                 (sigwinch, "SIGWINCH");
-                 (siginfo, "SIGINFO");
-                 (sigusr1, "SIGUSR1");
-                 (sigusr2, "SIGUSR2")] in
+  let signals = [(SIGHUP, "SIGHUP");
+                 (SIGINT, "SIGINT");
+                 (SIGQUIT, "SIGQUIT");
+                 (SIGILL, "SIGILL");
+                 (SIGTRAP, "SIGTRAP");
+                 (SIGABRT, "SIGABRT");
+                 (SIGEMT, "SIGEMT");
+                 (SIGFPE, "SIGFPE");
+                 (SIGKILL, "SIGKILL");
+                 (SIGBUS, "SIGBUS");
+                 (SIGSEGV, "SIGSEGV");
+                 (SIGSYS, "SIGSYS");
+                 (SIGPIPE, "SIGPIPE");
+                 (SIGALRM, "SIGALRM");
+                 (SIGTERM, "SIGTERM");
+                 (SIGURG, "SIGURG");
+                 (SIGSTOP, "SIGSTOP");
+                 (SIGTSTP, "SIGTSTP");
+                 (SIGCONT, "SIGCONT");
+                 (SIGCHLD, "SIGCHLD");
+                 (SIGTTIN, "SIGTTIN");
+                 (SIGTTOU, "SIGTTOU");
+                 (SIGIO, "SIGIO");
+                 (SIGXCPU, "SIGXCPU");
+                 (SIGXFSZ, "SIGXFSZ");
+                 (SIGVTALRM, "SIGVTALRM");
+                 (SIGPROF, "SIGPROF");
+                 (SIGWINCH, "SIGWINCH");
+                 (SIGINFO, "SIGINFO");
+                 (SIGUSR1, "SIGUSR1");
+                 (SIGUSR2, "SIGUSR2")] in
   List.iter (fun (s,str) -> assert (String.equal (Sys.signal_to_string s) str)) signals;
 
   r := false;
