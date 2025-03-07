@@ -247,6 +247,8 @@ external signal :
    invalid (or not available on your system), an [Invalid_argument]
    exception is raised. *)
 
+external signal_to_int : int -> int = "caml_convert_signal_number"
+
 val set_signal : int -> signal_behavior -> unit
 (** Same as {!Sys.signal} but return value is ignored. *)
 
