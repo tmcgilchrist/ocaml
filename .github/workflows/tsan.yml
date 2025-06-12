@@ -24,7 +24,18 @@ jobs:
 # subsequent jobs.
   build:
     if: contains(github.event.pull_request.labels.*.name, 'run-thread-sanitizer')
-    runs-on: 'ubuntu-latest'
+    name: 'build-${{ matrix.id }}'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - id: linux
+            os: 'ubuntu-latest'
+            artifact-name: sources-linux.tar.zstd
+          - id: macos
+            os: 'macos-latest'
+            artifact-name: sources-macos.tar.zstd
+
     outputs:
       manual_changed: ${{ steps.manual.outputs.manual_changed }}
     steps:
@@ -33,6 +44,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install libunwind
+        if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update -y
           sudo apt-get install -y libunwind-dev
@@ -41,20 +53,29 @@ jobs:
       # "FATAL: ThreadSanitizer: unexpected memory mapping" TSan error.
       # See:  https://github.com/google/sanitizers/issues/1716
       - name: Tune vm.mmap_rnd_bits value for TSan
+        if: matrix.os == 'ubuntu-latest'
         run: sudo sysctl vm.mmap_rnd_bits=28
       - name: Configure tree
         run: |
           MAKE_ARG=-j CONFIG_ARG='--enable-cmm-invariants --enable-dependency-generation --enable-native-toplevel --enable-tsan --enable-ocamltest CPPFLAGS=-DTSAN_INSTRUMENT_ALL' OCAMLRUNPARAM=b,v=0 bash -xe tools/ci/actions/runner.sh configure
       - name: Build
+        if: matrix.os == 'ubuntu-latest'
         run: |
           MAKE_ARG=-j bash -xe tools/ci/actions/runner.sh build
+      - name: Build
+        if: matrix.os == 'macos-latest'
+      # Work around the macos bug with nano_malloc.c and TSan.
+      # "malloc: nano zone abandoned due to inability to preallocate reserved vm space."
+      # see https://github.com/apple-opensource/libmalloc/blob/master/src/nano_malloc.c#L1943
+        run: |
+          MallocNanoZone=0 MAKE_ARG=-j bash -xe tools/ci/actions/runner.sh build
       - name: Prepare Artifact
-        run: tar --zstd -cf /tmp/sources.tar.zstd .
+        run: tar --zstd -cf /tmp/${{ matrix.artifact-name }} .
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: compiler
-          path: /tmp/sources.tar.zstd
+          path: /tmp/${{ matrix.artifact-name }}
           retention-days: 1
 
 # Testsuite run jobs:
@@ -65,16 +86,25 @@ jobs:
     if: contains(github.event.pull_request.labels.*.name, 'run-thread-sanitizer')
     name: ${{ matrix.name }}
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
           - id: normal
             name: normal
+            os: ubuntu-latest
             dependencies: libunwind-dev
+            artifact-name: sources-linux.tar.zstd
           - id: debug
             name: debug runtime
+            os: ubuntu-latest
             dependencies: libunwind-dev
+            artifact-name: sources-linux.tar.zstd
+          - id: normal-macos
+            name: normal-macos
+            os: macos-latest
+            dependencies: libunwind-dev
+            artifact-name: sources-macos.tar.zstd
     steps:
       - name: Download Artifact
         uses: actions/download-artifact@v4
@@ -82,8 +112,8 @@ jobs:
           name: compiler
       - name: Unpack Artifact
         run: |
-          tar --zstd -xf sources.tar.zstd
-          rm -f sources.tar.zstd
+          tar --zstd -xf ${{ matrix.artifact-name }}
+          rm -f ${{ matrix.artifact-name }}
       - name: Packages
         if: matrix.dependencies != ''
         run: |

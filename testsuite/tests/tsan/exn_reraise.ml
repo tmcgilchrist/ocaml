@@ -44,7 +44,9 @@ let [@inline never] f () =
   (try g () with
   | ExnA ->
     printf "Caught an ExnA\n%!";
+    Out_channel.flush_all ();
     Printexc.print_backtrace stdout;
+    Out_channel.flush_all ();
     race ());
   printf "Leaving f\n%!"
 

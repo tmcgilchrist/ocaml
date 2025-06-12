@@ -43,7 +43,9 @@ let [@inline never] f () =
   (try g ()
   with Failure msg ->
     printf "Caught Failure \"%s\"\n%!" msg;
+    Out_channel.flush_all ();
     Printexc.print_backtrace stdout;
+    Out_channel.flush_all ();
     race ());
   printf "Leaving f\n%!"
 

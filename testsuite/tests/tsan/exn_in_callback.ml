@@ -49,9 +49,13 @@ let [@inline never] f () =
   (try g () with
   | ExnB ->
     printf "Caught an ExnB\n%!";
+    Out_channel.flush_all ();
     Printexc.print_backtrace stdout;
+    Out_channel.flush_all ();
     race ());
-  printf "Leaving f\n%!"
+  Out_channel.flush_all ();
+  printf "Leaving f\n%!";
+  Out_channel.flush_all ()
 
 let [@inline never] writer () =
   Waitgroup.join wg;
