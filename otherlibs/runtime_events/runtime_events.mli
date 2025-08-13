@@ -72,8 +72,8 @@ Triggering of a minor collection during memprof young sampling.
 *)
 | EV_C_MINOR_PROMOTED
 (**
-Total words promoted from the minor heap to the major in the last minor
-collection.
+Total words promoted from the minor heap of this Domain to the major heap
+in the last minor collection.
 @since 5.0
 *)
 | EV_C_MINOR_ALLOCATED
