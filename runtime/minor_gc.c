@@ -704,7 +704,7 @@ caml_empty_minor_heap_promote(caml_domain_state* domain,
 
   call_timing_hook(&caml_minor_gc_end_hook);
   CAML_EV_COUNTER(EV_C_MINOR_PROMOTED,
-                  Bsize_wsize(domain->allocated_words - prev_alloc_words));
+                  domain->allocated_words - prev_alloc_words);
 
   CAML_EV_COUNTER(EV_C_MINOR_ALLOCATED, minor_allocated_bytes);
 

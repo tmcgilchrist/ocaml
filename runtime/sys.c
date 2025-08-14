@@ -160,6 +160,9 @@ CAMLexport void caml_do_exit(int retcode)
         top_heap_words = caml_top_heap_words(Caml_state->shared_heap);
       }
 
+
+      CAML_GC_MESSAGE(STATS, "domain: %" CAML_PRIdNAT "\n",
+                      (intnat)       domain_state->id);
       CAML_GC_MESSAGE(STATS, "allocated_words: %" CAML_PRIdNAT "\n",
                       (intnat) allocated_words);
       CAML_GC_MESSAGE(STATS, "minor_words: %" CAML_PRIdNAT "\n",
