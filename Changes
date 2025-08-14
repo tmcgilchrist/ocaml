@@ -273,6 +273,10 @@ Working version
   in an unbounded number of labeled or optional arguments.
   (Stefan Muenzel, report by Samuel Vivien, review by Florian Angeletti)
 
+- #14189: Report EV_C_MINOR_PROMOTED counter as words promoted.
+  (Tim McGilchrist, review by Nick Barnes, Sadiq Jaffer and
+  Gabriel Scherer)
+
 OCaml 5.4.0
 ---------------
 
