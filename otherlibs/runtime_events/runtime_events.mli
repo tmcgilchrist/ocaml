@@ -188,6 +188,12 @@ end of the major slice (see EV_C_MAJOR_SLICE_COUNTER).
 (**
 The budget in 'work' that a domain has to do during the major slice.
 @since 5.3
+ *)
+| EV_C_MINOR_ALLOCATED_WORDS
+(**
+Total words allocated in the minor heap of this Domain in the
+last minor collection.
+@since 5.4
 *)
 
 (** The type for span events emitted by the runtime. *)

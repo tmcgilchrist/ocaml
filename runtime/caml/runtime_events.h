@@ -154,7 +154,10 @@ typedef enum {
     EV_C_MAJOR_WORK_COUNTER,
     EV_C_MAJOR_ALLOC_COUNTER,
     EV_C_MAJOR_SLICE_TARGET,
-    EV_C_MAJOR_SLICE_BUDGET
+    EV_C_MAJOR_SLICE_BUDGET,
+
+    EV_C_MINOR_ALLOCATED_WORDS
+
 } ev_runtime_counter;
 
 typedef enum {
