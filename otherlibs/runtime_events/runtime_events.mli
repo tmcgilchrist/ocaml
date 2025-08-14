@@ -78,7 +78,8 @@ in the last minor collection.
 *)
 | EV_C_MINOR_ALLOCATED
 (**
-Total {b bytes} allocated in the minor heap in the last minor collection.
+Total {b bytes} allocated in the minor heap of this Domain in the
+last minor collection.
 @since 5.0
 *)
 | EV_C_REQUEST_MAJOR_ALLOC_SHR
