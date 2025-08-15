@@ -171,6 +171,8 @@ CAMLexport void caml_do_exit(int retcode)
                       (intnat) allocated_words);
       CAML_GC_MESSAGE(STATS, "minor_words: %" CAML_PRIdNAT "\n",
                       (intnat) minwords);
+      CAML_GC_MESSAGE(STATS, "minor_words_debug: %" CAML_PRIdNAT "\t %" CAML_PRIdNAT "\n",
+                      (intnat) s.alloc_stats.minor_words, (intnat) (domain_state->young_end - domain_state->young_ptr));
       CAML_GC_MESSAGE(STATS, "promoted_words: %" CAML_PRIdNAT "\n",
                       (intnat) s.alloc_stats.promoted_words);
       CAML_GC_MESSAGE(STATS, "major_words: %" CAML_PRIdNAT "\n",
