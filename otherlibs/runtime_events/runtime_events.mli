@@ -176,6 +176,8 @@ began.
 (**
 The global {b words} of major GC allocations done by all domains since the
 program began.
+TODO This is no longer correct, the value may wrap around. Better documented as
+related to 'work'.
 @since 5.3
 *)
 | EV_C_MAJOR_SLICE_TARGET
