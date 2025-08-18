@@ -136,6 +136,14 @@ CAMLexport void caml_do_exit(int retcode)
   caml_domain_state* domain_state = Caml_state;
   struct gc_stats s;
 
+  /* Emit minor GC allocations for main domain */
+  value* young_ptr = domain_state->young_ptr;
+  value* young_end = domain_state->young_end;
+  uintnat minor_allocated_bytes = (uintnat)young_end - (uintnat)young_ptr;
+  CAML_EV_COUNTER(EV_C_MINOR_ALLOCATED, minor_allocated_bytes);
+  CAML_EV_COUNTER(EV_C_MINOR_ALLOCATED_WORDS,
+                  Wsize_bsize(minor_allocated_bytes));
+
   if ((atomic_load_relaxed(&caml_verb_gc) & CAML_GC_MSG_STATS) != 0) {
     caml_compute_gc_stats(&s);
     {
