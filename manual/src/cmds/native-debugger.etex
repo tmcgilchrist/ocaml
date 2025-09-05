@@ -1,35 +1,73 @@
 \chapter{Native debugging (gdb, lldb)} \label{c:native-debugger}
 %HEVEA\cutname{native-debugger.html}
 
-\section{s:native-debugger-preliminaries}{Preliminaries}
+\section{s:native-debugger-overview}{Overview}
 
-This chapter describes the support for debugging OCaml executables built with the native-code compiler \texttt{ocamlopt}, using GDB or LLDB on the Linux, macOS, and FreeBSD platforms. We will call this \texttt{native debugging}, in contrast to bytecode debugging supported via \texttt{ocamldebug} (see chapter~\ref{c:debugger}).
+This chapter describes the support for debugging OCaml executables built with the native-code compiler \texttt{ocamlopt}, using standard native debuggers like GDB or LLDB. We will call this \emph{native debugging}, in contrast to bytecode debugging supported via \texttt{ocamldebug} (chapter~\ref{c:debugger}).
 
-Presently there is no Windows support for native debugging of OCaml.
+Native debugging is supported on Linux, macOS, and FreeBSD platforms. Windows support is not currently available.
 
 \subsection{ss:native-debugger-dwarf}{DWARF}
 
-The OCaml compiler uses the \href{http://dwarfstd.org/}{DWARF} debugging format to describe the debug information it generates.  DWARF is a debugging information format used by many compilers and debuggers to support source-level debugging. It is used by Linux ELF, macOS Mach-O and FreeBSD ELF executable formats.
+OCaml uses the \href{http://dwarfstd.org/}{DWARF} debugging format to describe the debugging information it generates. DWARF is a debugging information format used by many compilers and debuggers to support source-level debugging. It is used in the ELF and Mach-O executable formats.
 
-Within the larger DWARF standard, the compiler uses Call Frame Information (CFI) to describe the stack frames for OCaml code, which allows for unwinding the call stack to generate a backtrace. CFI is preserved across OCaml stack frames into sections of the runtime written in C, and across the Foreign Function Interface (FFI) if the foreign language also provides CFI information. OCaml defines its own calling convention, which details how arguments are passed to functions, how values are returned from functions, and how registers are used. This information is also encoded using CFI.
+The debugging information includes two key components:
 
-The OCaml compiler generates line information that maps machine instructions back to their source location (e.g., the instruction at address \texttt{0xdeadbeef} originated from \texttt{myprogram.ml} line 42). This allows native debuggers to display the OCaml source code for the program being debugged and enables stepping through OCaml source code.
+\textbf{Call Frame Information (CFI):} Describes how to unwind the call stack to generate backtraces. OCaml's CFI information spans across language boundaries-from OCaml code into C runtime functions and through Foreign Function Interface (FFI) calls when the foreign language also provides CFI data.
+
+\textbf{Source Line Mapping:} Maps each machine instruction back to its originating source location, enabling debuggers to display OCaml source code and supporting source-level stepping. For example, the instruction at memory address \texttt{0xdeadbeef} might map to \texttt{myprogram.ml:42}.
+
+OCaml defines its own calling convention detailing how arguments are passed to
+functions, how values are returned from functions, and how registers are used. This
+information is architecture specific and is documented in the source code files
+\emph{asmcomp/<ARCH>/proc.ml} for each architecture.
 
 \subsection{ss:native-debugger-name-mangling}{Name Mangling}
 
-Name mangling describes how the OCaml compiler generates symbol names for OCaml language constructs. The format of these symbols is important for native debuggers to uniquely identify the source function for a symbol without referencing the original source code. In the absence of source mappings you would use mangled names to set breakpoints, and they appear in debugger output like backtraces. Understanding OCaml's name mangling is therefore useful when debugging OCaml programs.
+When OCaml compiles source code, it transforms language constructs like functions and module names into \emph{mangled names} that appear in the final executable. These mangled names serve several purposes:
 
-OCaml 5.3 onwards uses a mangling scheme of "caml<MODULE_NAME>.<FUNCTION_NAME>_<NNN>" on Linux, where \texttt{NNN} is a randomly generated number. For macOS and the Windows MSVC port (restored in OCaml 5.3), the scheme uses \texttt{\$} as the separator. Before OCaml 5.1.1 the scheme used two underscores as the separator, e.g., \texttt{caml<MODULE_NAME>__<FUNCTION_NAME>_<NNN>}.
+\begin{itemize}
+\item They ensure symbol uniqueness in the compiled binary
+\item They encode module structure and namespace information
+\item They appear in debugger output such as backtraces and symbol lists
+\item They can be used to set breakpoints when source file information isn't available
+\end{itemize}
+
+Current mangling scheme for OCaml 5.3 onwards:
+\begin{itemize}
+\item Linux: \texttt{caml<MODULE\_NAME>.<FUNCTION\_NAME>\_<NNN>}
+\item macOS and Windows MSVC: \texttt{caml<MODULE\_NAME>\$<FUNCTION\_NAME>\_<NNN>}
+\end{itemize}
+
+where \texttt{NNN} is a randomly generated number to ensure uniqueness.
+
+\textbf{Example:} A function \texttt{fib} in module \texttt{MyMath} might become \texttt{camlMyMath.fib\_271} on Linux or \texttt{camlMyMath\$fib\_271} on macOS.
+
+\textbf{Note:} OCaml versions before 5.1.1 used double underscores: \texttt{caml<MODULE\_NAME>\_\_<FUNCTION\_NAME>\_<NNN>}.
 
 \subsection{ss:native-debugger-frame-pointers}{Frame Pointers}
 
-The native compiler supports maintaining frame pointers on AMD64 and ARM64 platforms, which a native debugger can use to walk the stack of function calls in a program. The frame pointer (also know as the base pointer) is a register (e.g., \texttt{\%rbp} on AMD64 or \texttt{x29} on ARM64) that points to the base of the current stack frame. The stack frame (also known as the activation frame or activation record) refers to the portion of the stack allocated to a single function call. By saving the frame pointer along with the return address, the call stack for OCaml can be maintained. Using frame pointers only (with CFI disabled) it is possible to display backtraces for OCaml programs, however some information about register saves and restores might not work. See the follow section for how to enable frame pointers.
+Frame pointers provide an alternative method for debuggers to walk the
+call stack. OCaml supports frame pointers on AMD64 and ARM64 platforms.
+
+With frame pointers, each function maintains a \emph{frame pointer} that points to
+the base of its stack frame (the memory region allocated for that function’s
+local variables and call information also known as the activation frame or
+activation record). By chaining these pointers together with return addresses,
+debuggers can reconstruct the complete call stack.
+
+Frame pointers are optional (not necessary for debugging),
+and must be explicitly enabled during compiler configuration
+(see Profiling section \ref{s:ocamlprof-compiling-perf} for details).
 
 \section{s:native-debugger-compilation}{Compiling for Debugging}
 
-Before debugging programs written in OCaml, the native compiler \texttt{ocamlopt} must be installed with CFI support, this is enabled by default. CFI can also be controlled by the \texttt{--enable-cfi} configure flag. To enable frame pointers use the \texttt{--enable-frame-pointers} configure flag or create an opam switch with \texttt{ocaml-option-fp} e.g. \texttt{opam switch create <YOUR-SWITCH-NAME-HERE> ocaml-option-fp}.
+Before debugging OCaml programs, the native compiler \texttt{ocamlopt} must be installed with CFI support, which it is by default. You can also explicitly control
+this with the \texttt{--enable-cfi} configure flag when building the compiler.
 
-To perform source-level debugging, compile all code with the \texttt{-g} flag, this records DWARF information for exception backtraces, and generates line information for mapping between assembly and source locations in OCaml. Compiling with \texttt{-g} entails no runtime penalty but will generate larger binaries as they include extra sections of debugging information. Note that OCaml libraries and other dependencies, need to be compiled with DWARF debugging information, failure to do so will lose source-level debugging features and will likely fall back to assembly-level debugging. It is also necessary to keep the source code available for any dependencies you wish to debug. One option using opam is to keep the build directory after installing packages.
+To perform source-level debugging, compile all code with the \texttt{-g} flag, this records DWARF information for exception backtraces, and generates line information for mapping between assembly and source locations in OCaml. Compiling with \texttt{-g} entails no runtime penalty but will generate larger binaries as they include sections for debugging information. Note that OCaml libraries and other dependencies, need to be compiled with DWARF debugging information, failure to do so will lose source-level debugging features for those sections of code.
+
+Debuggers need access to source files referenced in the DWARF information. For dependencies, consider using opam's build directory preservation:
 
 \begin{verbatim}
 # First tell opam to keep the source code
@@ -43,9 +81,11 @@ $ opam switch reinstall
 # local switch or ~/.opam/<switch_name>/.opam-switch/build
 \end{verbatim}
 
+The following sections demonstrate debugging OCaml programs with GDB and LLDB, showing common workflows and expected outputs.
+
 \section{s:native-debugger-gdb}{Using GDB}
 
-Here we walk through debugging a simple OCaml program using GDB on Linux, showing the commands to use and the expected outputs. Note this session uses Ubuntu 24.04 LTS on AMD64.
+Here we walk through debugging a simple OCaml program using GDB on Linux, showing the commands to use and the expected outputs. Note this session uses Ubuntu 24.04 LTS on AMD64 with OCaml 5.4.
 
 Consider the following program:
 
@@ -223,7 +263,7 @@ See the \href{https://sourceware.org/gdb/current/onlinedocs/gdb.html/}{Debugging
 
 \section{s:native-debugger-lldb}{Using LLDB}
 
-Here we will walk through debugging the earlier fib example using LLDB on Linux. Startup an LLDB session using the \texttt{fib.exe} from earlier. Note this session uses Ubuntu 24.04 LTS on ARM64.
+Here we will walk through debugging the earlier fib example using LLDB on Linux. Startup an LLDB session using the \texttt{fib.exe} from earlier. Note this session uses Ubuntu 24.04 LTS on ARM64 with OCaml 5.4.
 
 \begin{verbatim}
 $ lldb ./fib.exe
