@@ -39,7 +39,7 @@ Current mangling scheme for OCaml 5.3 onwards:
 \item macOS and Windows MSVC: \texttt{caml<MODULE\_NAME>\$<FUNCTION\_NAME>\_<NNN>}
 \end{itemize}
 
-where \texttt{NNN} is a randomly generated number to ensure uniqueness.
+where \texttt{NNN} is a unique generated number.
 
 \textbf{Example:} A function \texttt{fib} in module \texttt{MyMath} might become \texttt{camlMyMath.fib\_271} on Linux or \texttt{camlMyMath\$fib\_271} on macOS.
 
@@ -121,7 +121,7 @@ Breakpoints can be set using either the mangled names produced by the compiler o
 
 \begin{verbatim}
 (gdb) break camlFib.fib_     # press tab
-(gdb) break camlFib.fib_271  # 271 happens to be the random number generated for NNN
+(gdb) break camlFib.fib_271  # 271 happens to be the unique number generated
 Breakpoint 1 at 0x3cd50: file fib.ml, line 2.
 
 (gdb) break fib.ml:7         # breakpoint for main function
