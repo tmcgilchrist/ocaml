@@ -40,6 +40,7 @@
 #include "caml/shared_heap.h"
 #include "caml/startup_aux.h"
 #include "caml/weak.h"
+#include "caml/usdt_probes.h"
 
 /* Default speed setting for the major GC. */
 _Atomic uintnat caml_percent_free = Percent_free_def;
@@ -2243,6 +2244,7 @@ static void major_collection_slice(intnat howmuch,
   }
 
   if (log_events) CAML_EV_BEGIN(EV_MAJOR_SLICE);
+  OCAML_USDT_GC_MAJOR_SLICE_BEGIN(domain_state->id);
   call_timing_hook(&caml_major_slice_begin_hook);
 
   adopt_orphaned_work();
@@ -2430,6 +2432,7 @@ mark_again:
   }
 
   call_timing_hook(&caml_major_slice_end_hook);
+  OCAML_USDT_GC_MAJOR_SLICE_END(domain_state->id, mark_work);
   if (log_events) CAML_EV_END(EV_MAJOR_SLICE);
 
   caml_gc_log("Major slice [%c%c%c]: %" CAML_PRIdNAT " sweep, "

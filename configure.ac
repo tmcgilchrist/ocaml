@@ -542,6 +542,12 @@ AC_ARG_ENABLE([instrumented-runtime],
   [],
   [enable_instrumented_runtime=auto])
 
+AC_ARG_ENABLE([usdt],
+  [AS_HELP_STRING([--enable-usdt],
+    [enable USDT probes for DTrace/SystemTap/bpftrace tracing])],
+  [],
+  [enable_usdt=no])
+
 AC_ARG_ENABLE([vmthreads], [],
   [AS_IF([test "x$enableval" != 'xno'],
     [AC_MSG_ERROR(m4_normalize([The vmthreads library is no longer available.
@@ -1428,6 +1434,18 @@ AC_CHECK_HEADER([sys/select.h], [AC_DEFINE([HAS_SYS_SELECT_H], [1])], [],
   [#include <sys/types.h>])
 
 AC_CHECK_HEADER([sys/mman.h], [AC_DEFINE([HAS_SYS_MMAN_H], [1])])
+
+# Check for SystemTap SDT (Statically Defined Tracing) support
+# Only check if explicitly enabled via --enable-usdt
+AS_IF([test "x$enable_usdt" = "xyes"],
+  [AC_MSG_CHECKING([for sys/sdt.h])
+   AC_CHECK_HEADER([sys/sdt.h],
+     [AC_DEFINE([CAML_WITH_USDT], [1],
+       [Define if USDT probes are enabled and SystemTap SDT headers are available])
+      AC_MSG_RESULT([yes])],
+     [AC_MSG_ERROR([USDT enabled but sys/sdt.h not found. Install systemtap-sdt-dev (Debian/Ubuntu) or systemtap-sdt-devel (Fedora/RHEL).])],
+     [])],
+  [])
 
 AS_CASE([$target],
   [*-*-linux*],

@@ -41,6 +41,7 @@
 #include "caml/signals.h"
 #include "caml/startup_aux.h"
 #include "caml/weak.h"
+#include "caml/usdt_probes.h"
 
 struct generic_table CAML_TABLE_STRUCT(char);
 
@@ -544,6 +545,7 @@ caml_empty_minor_heap_promote(caml_domain_state* domain,
 
   caml_gc_log ("Minor collection of domain %d starting", domain->id);
   CAML_EV_BEGIN(EV_MINOR);
+  OCAML_USDT_GC_MINOR_BEGIN(domain->id);
   call_timing_hook(&caml_minor_gc_begin_hook);
 
   CAMLassert(domain == Caml_state);
@@ -732,6 +734,9 @@ caml_empty_minor_heap_promote(caml_domain_state* domain,
   CAML_EV_COUNTER(EV_C_MINOR_ALLOCATED_WORDS,
                   Whsize_wosize(minor_allocated_bytes));
 
+  OCAML_USDT_GC_MINOR_END(domain->id,
+                          domain->allocated_words - prev_alloc_words,
+                          Whsize_wosize(minor_allocated_bytes));
   CAML_EV_END(EV_MINOR);
   if (minor_allocated_bytes == 0)
     caml_gc_log ("Minor collection of domain %d completed:"
