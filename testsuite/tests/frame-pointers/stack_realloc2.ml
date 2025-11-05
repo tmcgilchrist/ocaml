@@ -3,12 +3,36 @@
  readonly_files = "fp_backtrace.c stack_realloc_.c";
  all_modules = "${readonly_files} stack_realloc2.ml";
  {
-   (* NOTE clang on MacOS and gcc on Linux are less eager to inline
-           certain C functions in the runtime. *)
+ (* NOTE clang on macOS and gcc on Linux are less eager to inline
+ certain C functions in the runtime. *)
+   linux;
    reference = "${test_source_directory}/stack_realloc2.arm64.reference";
    arch_arm64;
    native;
  } {
+   macos;
+   reference = "${test_source_directory}/stack_realloc2.arm64.reference";
+   arch_arm64;
+   native;
+ } {
+   bsd;
+   reference = "${test_source_directory}/stack_realloc2.arm64.reference";
+   flags = "-cclib -lexecinfo";
+   arch_arm64;
+   native;
+ } {
+   macos;
+   reference = "${test_source_directory}/stack_realloc2.reference";
+   arch_amd64;
+   native;
+ } {
+   bsd;
+   reference = "${test_source_directory}/stack_realloc2.reference";
+   flags = "-cclib -lexecinfo";
+   arch_amd64;
+   native;
+ } {
+   linux;
    reference = "${test_source_directory}/stack_realloc2.reference";
    arch_amd64;
    native;

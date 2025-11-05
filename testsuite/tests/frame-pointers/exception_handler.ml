@@ -2,7 +2,17 @@
  frame_pointers;
  readonly_files = "fp_backtrace.c";
  all_modules = "${readonly_files} exception_handler.ml";
- native;
+ {
+   bsd;
+   flags = "-cclib -lexecinfo";
+   native;
+ } {
+   macos;
+   native;
+ } {
+   linux;
+   native;
+ }
 *)
 
 (* https://github.com/ocaml/ocaml/pull/11031 *)

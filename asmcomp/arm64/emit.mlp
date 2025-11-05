@@ -1260,7 +1260,7 @@ let begin_assembly() =
      Alignment is needed to avoid linker warnings for
      shared_startup__code_{begin,end} (e.g. tests/lib-dynlink-pr4839).
    *)
-  if macosx then begin
+  if macosx || freebsd then begin
     `	nop\n`;
     `	.align	3\n`
   end;

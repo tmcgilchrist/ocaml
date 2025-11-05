@@ -2,7 +2,17 @@
  frame_pointers;
  readonly_files = "fp_backtrace.c";
  all_modules = "${readonly_files} exceptions.ml";
- native;
+ {
+   bsd;
+   flags = "-cclib -lexecinfo";
+   native;
+ } {
+   macos;
+   native;
+ } {
+   linux;
+   native;
+ }
 *)
 
 external fp_backtrace : string -> unit = "fp_backtrace" [@@noalloc]

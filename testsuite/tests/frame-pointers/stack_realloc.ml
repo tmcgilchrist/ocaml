@@ -5,10 +5,34 @@
  {
  (* NOTE clang on macOS and gcc on Linux are less eager to inline
          certain C functions in the runtime. *)
+   linux;
    reference = "${test_source_directory}/stack_realloc.arm64.reference";
    arch_arm64;
    native;
  } {
+   macos;
+   reference = "${test_source_directory}/stack_realloc.arm64.reference";
+   arch_arm64;
+   native;
+ } {
+   bsd;
+   reference = "${test_source_directory}/stack_realloc.arm64.reference";
+   flags = "-cclib -lexecinfo";
+   arch_arm64;
+   native;
+} {
+   macos;
+   reference = "${test_source_directory}/stack_realloc.reference";
+   arch_amd64;
+   native;
+} {
+   bsd;
+   reference = "${test_source_directory}/stack_realloc.reference";
+   flags = "-cclib -lexecinfo";
+   arch_amd64;
+   native;
+} {
+   linux;
    reference = "${test_source_directory}/stack_realloc.reference";
    arch_amd64;
    native;
