@@ -26,6 +26,7 @@
 #include "caml/codefrag.h"
 #include "caml/domain.h"
 #include "caml/runtime_events.h"
+#include "caml/usdt_probes.h"
 #include "caml/fail.h"
 #include "caml/fiber.h"
 #include "caml/finalise.h"
@@ -1176,15 +1177,26 @@ update_major_slice_work(intnat howmuch,
 
   if (log_events) {
     CAML_EV_COUNTER(EV_C_MAJOR_HEAP_WORDS, (uintnat)heap_words);
+    OCAML_USDT_COUNTER_MAJOR_HEAP_WORDS(dom_st->id, (uintnat)heap_words);
     CAML_EV_COUNTER(EV_C_MAJOR_ALLOCATED_WORDS, my_alloc_count);
+    OCAML_USDT_COUNTER_MAJOR_ALLOCATED_WORDS(dom_st->id, my_alloc_count);
     /* TODO: add counters for direct, suspended, resumed allocs. */
     CAML_EV_COUNTER(EV_C_MAJOR_ALLOCATED_WORK, alloc_work);
+    OCAML_USDT_COUNTER_MAJOR_ALLOCATED_WORK(dom_st->id, alloc_work);
     CAML_EV_COUNTER(EV_C_MAJOR_DEPENDENT_WORK, dependent_work);
+    OCAML_USDT_COUNTER_MAJOR_DEPENDENT_WORK(dom_st->id, dependent_work);
     CAML_EV_COUNTER(EV_C_MAJOR_EXTRA_WORK, extra_work);
+    OCAML_USDT_COUNTER_MAJOR_EXTRA_WORK(dom_st->id, extra_work);
     CAML_EV_COUNTER(EV_C_MAJOR_WORK_COUNTER, atomic_load (&work_counter));
+    OCAML_USDT_COUNTER_MAJOR_WORK_COUNTER(dom_st->id,
+                                          atomic_load (&work_counter));
     CAML_EV_COUNTER(EV_C_MAJOR_ALLOC_COUNTER, atomic_load (&alloc_counter));
+    OCAML_USDT_COUNTER_MAJOR_ALLOC_COUNTER(dom_st->id,
+                                           atomic_load (&alloc_counter));
     CAML_EV_COUNTER(EV_C_MAJOR_SLICE_TARGET, dom_st->slice_target);
+    OCAML_USDT_COUNTER_MAJOR_SLICE_TARGET(dom_st->id, dom_st->slice_target);
     CAML_EV_COUNTER(EV_C_MAJOR_SLICE_BUDGET, dom_st->slice_budget);
+    OCAML_USDT_COUNTER_MAJOR_SLICE_BUDGET(dom_st->id, dom_st->slice_budget);
   }
 }
 
@@ -2075,15 +2087,27 @@ static void stw_try_cycle_all_domains(
 
   CAML_EV_COUNTER(EV_C_MAJOR_HEAP_POOL_WORDS,
                   (uintnat)local_stats.pool_words);
+  OCAML_USDT_COUNTER_MAJOR_HEAP_POOL_WORDS(Caml_state->id,
+                  (uintnat)local_stats.pool_words);
   CAML_EV_COUNTER(EV_C_MAJOR_HEAP_POOL_LIVE_WORDS,
+                  (uintnat)local_stats.pool_live_words);
+  OCAML_USDT_COUNTER_MAJOR_HEAP_POOL_LIVE_WORDS(Caml_state->id,
                   (uintnat)local_stats.pool_live_words);
   CAML_EV_COUNTER(EV_C_MAJOR_HEAP_LARGE_WORDS,
                   (uintnat)local_stats.large_words);
+  OCAML_USDT_COUNTER_MAJOR_HEAP_LARGE_WORDS(Caml_state->id,
+                  (uintnat)local_stats.large_words);
   CAML_EV_COUNTER(EV_C_MAJOR_HEAP_POOL_FRAG_WORDS,
+                  (uintnat)(local_stats.pool_frag_words));
+  OCAML_USDT_COUNTER_MAJOR_HEAP_POOL_FRAG_WORDS(Caml_state->id,
                   (uintnat)(local_stats.pool_frag_words));
   CAML_EV_COUNTER(EV_C_MAJOR_HEAP_POOL_LIVE_BLOCKS,
                   (uintnat)local_stats.pool_live_blocks);
+  OCAML_USDT_COUNTER_MAJOR_HEAP_POOL_LIVE_BLOCKS(Caml_state->id,
+                  (uintnat)local_stats.pool_live_blocks);
   CAML_EV_COUNTER(EV_C_MAJOR_HEAP_LARGE_BLOCKS,
+                  (uintnat)local_stats.large_blocks);
+  OCAML_USDT_COUNTER_MAJOR_HEAP_LARGE_BLOCKS(Caml_state->id,
                   (uintnat)local_stats.large_blocks);
 
   domain->sweeping_done = 0;

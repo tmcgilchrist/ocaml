@@ -24,6 +24,7 @@
 #include "caml/mlvalues.h"
 #include "caml/signals.h"
 #include "caml/runtime_events.h"
+#include "caml/usdt_probes.h"
 
 static const mlsize_t mlsize_t_max = CAML_UINTNAT_MAX;
 
@@ -247,6 +248,7 @@ CAMLprim value caml_uniform_array_make(value len, value init)
       /* We don't want to create so many major-to-minor references,
          so [init] is moved to the major heap by doing a minor GC. */
       CAML_EV_COUNTER (EV_C_FORCE_MINOR_MAKE_VECT, 1);
+      OCAML_USDT_COUNTER_FORCE_MINOR_MAKE_VECT(Caml_state->id);
       caml_minor_collection ();
     }
     CAMLassert(!(Is_block(init) && Is_young(init)));

@@ -23,6 +23,7 @@
 #include "caml/custom.h"
 #include "caml/domain.h"
 #include "caml/runtime_events.h"
+#include "caml/usdt_probes.h"
 #include "caml/fail.h"
 #include "caml/fiber.h"
 #include "caml/finalise.h"
@@ -131,6 +132,7 @@ void caml_set_minor_heap_size (asize_t wsize)
 
   if (domain_state->young_ptr != domain_state->young_end) {
     CAML_EV_COUNTER (EV_C_FORCE_MINOR_SET_MINOR_HEAP_SIZE, 1);
+    OCAML_USDT_COUNTER_FORCE_MINOR_SET_MINOR_HEAP_SIZE(domain_state->id);
     caml_minor_collection();
   }
   CAMLassert (domain_state->young_ptr == domain_state->young_end);
@@ -727,11 +729,18 @@ caml_empty_minor_heap_promote(caml_domain_state* domain,
   call_timing_hook(&caml_minor_gc_end_hook);
   CAML_EV_COUNTER(EV_C_MINOR_PROMOTED,
                   Bsize_wsize(domain->allocated_words - prev_alloc_words));
+  OCAML_USDT_COUNTER_MINOR_PROMOTED(domain->id,
+                  Bsize_wsize(domain->allocated_words - prev_alloc_words));
   CAML_EV_COUNTER(EV_C_MINOR_PROMOTED_WORDS,
+                  domain->allocated_words - prev_alloc_words);
+  OCAML_USDT_COUNTER_MINOR_PROMOTED_WORDS(domain->id,
                   domain->allocated_words - prev_alloc_words);
 
   CAML_EV_COUNTER(EV_C_MINOR_ALLOCATED, minor_allocated_bytes);
+  OCAML_USDT_COUNTER_MINOR_ALLOCATED(domain->id, minor_allocated_bytes);
   CAML_EV_COUNTER(EV_C_MINOR_ALLOCATED_WORDS,
+                  Whsize_wosize(minor_allocated_bytes));
+  OCAML_USDT_COUNTER_MINOR_ALLOCATED_WORDS(domain->id,
                   Whsize_wosize(minor_allocated_bytes));
 
   OCAML_USDT_GC_MINOR_END(domain->id,
@@ -1045,6 +1054,7 @@ void caml_alloc_small_dispatch (caml_domain_state * dom_st,
     /* If not, then empty the minor heap, and check again for async
        callbacks. */
     CAML_EV_COUNTER(EV_C_FORCE_MINOR_ALLOC_SMALL, 1);
+    OCAML_USDT_COUNTER_FORCE_MINOR_ALLOC_SMALL(dom_st->id);
     caml_poll_gc_work();
   }
 
@@ -1104,6 +1114,21 @@ static void realloc_generic_table
                          element_size);
   }else if (tbl->limit == tbl->threshold){
     CAML_EV_COUNTER (ev_counter_name, 1);
+    switch (ev_counter_name) {
+      case EV_C_REQUEST_MINOR_REALLOC_REF_TABLE:
+        OCAML_USDT_COUNTER_REQUEST_MINOR_REALLOC_REF_TABLE(Caml_state->id);
+        break;
+      case EV_C_REQUEST_MINOR_REALLOC_EPHE_REF_TABLE:
+        OCAML_USDT_COUNTER_REQUEST_MINOR_REALLOC_EPHE_REF_TABLE(
+            Caml_state->id);
+        break;
+      case EV_C_REQUEST_MINOR_REALLOC_CUSTOM_TABLE:
+        OCAML_USDT_COUNTER_REQUEST_MINOR_REALLOC_CUSTOM_TABLE(
+            Caml_state->id);
+        break;
+      default:
+        break;
+    }
     CAML_GC_MESSAGE(STACKSIZE, msg_threshold, 0);
     tbl->limit = tbl->end;
     caml_request_minor_gc ();

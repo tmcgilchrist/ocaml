@@ -264,6 +264,7 @@ AC_SUBST([ocamltest_opt_target])
 AC_SUBST([ASPP])
 AC_SUBST([endianness])
 AC_SUBST([AS])
+AC_SUBST([DTRACE])
 AC_SUBST([asm_cfi_supported])
 AC_SUBST([asm_size_type_directives])
 AC_SUBST([asm_dwarf_version])
@@ -1438,13 +1439,23 @@ AC_CHECK_HEADER([sys/mman.h], [AC_DEFINE([HAS_SYS_MMAN_H], [1])])
 # Check for SystemTap SDT (Statically Defined Tracing) support
 # Only check if explicitly enabled via --enable-usdt
 AS_IF([test "x$enable_usdt" = "xyes"],
-  [AC_MSG_CHECKING([for sys/sdt.h])
-   AC_CHECK_HEADER([sys/sdt.h],
-     [AC_DEFINE([CAML_WITH_USDT], [1],
-       [Define if USDT probes are enabled and SystemTap SDT headers are available])
-      AC_MSG_RESULT([yes])],
-     [AC_MSG_ERROR([USDT enabled but sys/sdt.h not found. Install systemtap-sdt-dev (Debian/Ubuntu) or systemtap-sdt-devel (Fedora/RHEL).])],
-     [])],
+  [AS_CASE([$host],
+    [*-*-darwin*|*-*-freebsd*],
+      [AC_MSG_CHECKING([for dtrace])
+       AC_CHECK_PROG([DTRACE], [dtrace], [dtrace])
+       AS_IF([test "x$DTRACE" = "x"],
+         [AC_MSG_ERROR([USDT enabled but dtrace not found. DTrace is required on macOS/FreeBSD.])],
+         [AC_DEFINE([CAML_WITH_USDT], [1],
+           [Define if USDT probes are enabled])
+          AC_MSG_RESULT([yes])])],
+    [*],
+      [AC_MSG_CHECKING([for sys/sdt.h])
+       AC_CHECK_HEADER([sys/sdt.h],
+         [AC_DEFINE([CAML_WITH_USDT], [1],
+           [Define if USDT probes are enabled and SystemTap SDT headers are available])
+          AC_MSG_RESULT([yes])],
+         [AC_MSG_ERROR([USDT enabled but sys/sdt.h not found. Install systemtap-sdt-dev (Debian/Ubuntu) or systemtap-sdt-devel (Fedora/RHEL).])],
+         [])])],
   [])
 
 AS_CASE([$target],
