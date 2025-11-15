@@ -276,6 +276,41 @@
     DTRACE_PROBE2(OCAML_PROVIDER, stw__end, domain_id, duration_ns)
 #endif
 
+/* STW interrupt sent from leader to target domain
+ * For debugging STW synchronization delays
+ */
+#if defined(__APPLE__) || defined(__FreeBSD__)
+#define OCAML_USDT_STW_INTERRUPT_SENT(leader_id, target_domain_id) \
+    OCAML_STW_INTERRUPT_SENT(leader_id, target_domain_id)
+#else
+#define OCAML_USDT_STW_INTERRUPT_SENT(leader_id, target_domain_id) \
+    DTRACE_PROBE2(OCAML_PROVIDER, stw__interrupt__sent, \
+                  leader_id, target_domain_id)
+#endif
+
+/* STW handler entry by domain
+ * Fires at the very start of stw_handler, before any work
+ */
+#if defined(__APPLE__) || defined(__FreeBSD__)
+#define OCAML_USDT_STW_HANDLER_ENTER(domain_id) \
+    OCAML_STW_HANDLER_ENTER(domain_id)
+#else
+#define OCAML_USDT_STW_HANDLER_ENTER(domain_id) \
+    DTRACE_PROBE1(OCAML_PROVIDER, stw__handler__enter, domain_id)
+#endif
+
+/* STW barrier entry by domain
+ * barrier_id: 0=API_BARRIER, 1=domains_still_running, etc.
+ */
+#if defined(__APPLE__) || defined(__FreeBSD__)
+#define OCAML_USDT_STW_BARRIER_ENTER(domain_id, barrier_id) \
+    OCAML_STW_BARRIER_ENTER(domain_id, barrier_id)
+#else
+#define OCAML_USDT_STW_BARRIER_ENTER(domain_id, barrier_id) \
+    DTRACE_PROBE2(OCAML_PROVIDER, stw__barrier__enter, \
+                  domain_id, barrier_id)
+#endif
+
 /* ========================================================================
  * Memory Heap Statistics Probes
  * ======================================================================== */
@@ -612,6 +647,9 @@
 #define OCAML_USDT_RUNTIME_END() do {} while(0)
 #define OCAML_USDT_STW_BEGIN(domain_id, reason) do {} while(0)
 #define OCAML_USDT_STW_END(domain_id, duration_ns) do {} while(0)
+#define OCAML_USDT_STW_INTERRUPT_SENT(leader_id, target_domain_id) do {} while(0)
+#define OCAML_USDT_STW_HANDLER_ENTER(domain_id) do {} while(0)
+#define OCAML_USDT_STW_BARRIER_ENTER(domain_id, barrier_id) do {} while(0)
 #define OCAML_USDT_HEAP_STATS(domain_id, minor_words, major_words, live_words) do {} while(0)
 
 #define OCAML_USDT_COUNTER_MINOR_PROMOTED(domain_id, bytes) do {} while(0)

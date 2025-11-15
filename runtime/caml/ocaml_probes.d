@@ -79,6 +79,11 @@ provider ocaml {
     probe stw__begin(int domain_id, int reason);
     probe stw__end(int domain_id, uint64_t duration_ns);
 
+    /* STW synchronization tracking - for debugging slow domain responses */
+    probe stw__interrupt__sent(int leader_id, int target_domain_id);
+    probe stw__handler__enter(int domain_id);
+    probe stw__barrier__enter(int domain_id, int barrier_id);
+
     /*
      * Memory Heap Statistics Probes
      */

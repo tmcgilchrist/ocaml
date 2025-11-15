@@ -1680,6 +1680,7 @@ static void stw_wait_for_running(caml_domain_state* domain)
 
 static void stw_api_barrier(caml_domain_state* domain)
 {
+  OCAML_USDT_STW_BARRIER_ENTER(domain->id, 0); /* barrier_id: 0=API_BARRIER */
   CAML_EV_BEGIN(EV_STW_API_BARRIER);
   OCAML_USDT_STW_BEGIN(domain->id, 0); /* reason: 0=API_BARRIER */
   if (caml_plat_barrier_arrive(&stw_request.domains_still_running)
@@ -1694,6 +1695,7 @@ static void stw_api_barrier(caml_domain_state* domain)
 
 static void stw_handler(caml_domain_state* domain)
 {
+  OCAML_USDT_STW_HANDLER_ENTER(domain->id);
   CAML_EV_BEGIN(EV_STW_HANDLER);
   OCAML_USDT_STW_BEGIN(domain->id, 1); /* reason: 1=HANDLER */
   if (!caml_plat_barrier_is_released(&stw_request.domains_still_running)) {
@@ -1907,7 +1909,10 @@ int caml_try_run_on_all_domains_with_spin_work(
     dom_internal * d = stw_domains.domains[i];
     stw_request.participating[i] = d->state;
     CAMLassert(!interruptor_has_pending(&d->interruptor));
-    if (d->state != domain_state) caml_send_interrupt(&d->interruptor);
+    if (d->state != domain_state) {
+      OCAML_USDT_STW_INTERRUPT_SENT(domain_state->id, d->state->id);
+      caml_send_interrupt(&d->interruptor);
+    }
   }
 
 
