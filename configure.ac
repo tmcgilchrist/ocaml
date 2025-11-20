@@ -280,6 +280,7 @@ AC_SUBST([install_source_artifacts])
 AC_SUBST([install_ocamlnat])
 AC_SUBST([reserved_header_bits])
 AC_SUBST([frame_pointers])
+AC_SUBST([usdt])
 AC_SUBST([flambda])
 AC_SUBST([flambda_invariants])
 AC_SUBST([cmm_invariants])
@@ -1447,16 +1448,18 @@ AS_IF([test "x$enable_usdt" = "xyes"],
          [AC_MSG_ERROR([USDT enabled but dtrace not found. DTrace is required on macOS/FreeBSD.])],
          [AC_DEFINE([CAML_WITH_USDT], [1],
            [Define if USDT probes are enabled])
+          usdt=true
           AC_MSG_RESULT([yes])])],
     [*],
       [AC_MSG_CHECKING([for sys/sdt.h])
        AC_CHECK_HEADER([sys/sdt.h],
          [AC_DEFINE([CAML_WITH_USDT], [1],
            [Define if USDT probes are enabled and SystemTap SDT headers are available])
+          usdt=true
           AC_MSG_RESULT([yes])],
          [AC_MSG_ERROR([USDT enabled but sys/sdt.h not found. Install systemtap-sdt-dev (Debian/Ubuntu) or systemtap-sdt-devel (Fedora/RHEL).])],
          [])])],
-  [])
+  [usdt=false])
 
 AS_CASE([$target],
   [*-*-linux*],

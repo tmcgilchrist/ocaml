@@ -277,6 +277,13 @@ let frame_pointers = make
      "frame-pointers available"
      "frame-pointers not available")
 
+let usdt = make
+  ~name:"usdt"
+  ~description:"Pass if USDT probes are available"
+  (Actions_helpers.pass_or_skip (Ocamltest_config.usdt)
+     "USDT probes available"
+     "USDT probes not available")
+
 let tsan = make
   ~name:"tsan"
   ~description:"Pass if thread sanitizer is supported"
@@ -455,6 +462,7 @@ let _ =
     arch_s390x;
     function_sections;
     frame_pointers;
+    usdt;
     file_exists;
     copy;
     tsan;

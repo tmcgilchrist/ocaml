@@ -149,6 +149,9 @@ val instrumented_runtime : bool
 val frame_pointers : bool
 (** Whether frame-pointers have been enabled at configure time *)
 
+val usdt : bool
+(** Whether USDT probes have been enabled at configure time *)
+
 val tsan : bool
 (** Whether ThreadSanitizer support has been enabled at configure time *)
 
