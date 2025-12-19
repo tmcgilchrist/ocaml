@@ -31,10 +31,12 @@ open Mach
     3 - 10              function arguments and results
     11 - 12             temporaries
     13                  pointer to small data area
-    14 - 28             general purpose, preserved by C
+    14 - 22             general purpose, preserved by C
+    23                  allocation pointer
+    24 - 28             general purpose, preserved by C
     29                  trap pointer
     30                  domain state pointer
-    31                  allocation pointer
+    31                  frame pointer (when enabled via --enable-frame-pointers)
   Floating-point register map:
     0                   temporary
     1 - 13              function arguments and results
@@ -44,7 +46,7 @@ open Mach
 let int_reg_name =
   [| "3"; "4"; "5"; "6"; "7"; "8"; "9"; "10";           (* 0 - 7 *)
      "14"; "15"; "16"; "17"; "18"; "19"; "20"; "21";    (* 8 - 15 *)
-     "22"; "23"; "24"; "25"; "26"; "27"; "28" |]        (* 16 - 22 *)
+     "22"; "24"; "25"; "26"; "27"; "28" |]              (* 16 - 21, r23 reserved for ALLOC_PTR *)
 
 let float_reg_name =
   [| "0"; "1"; "2"; "3"; "4"; "5"; "6"; "7";
@@ -59,7 +61,7 @@ let register_class r =
   | Val | Int | Addr -> 0
   | Float -> 1
 
-let num_available_registers = [| 23; 32 |]
+let num_available_registers = [| 22; 32 |]  (* r23 reserved for ALLOC_PTR *)
 
 let first_available_register = [| 0; 100 |]
 
@@ -71,8 +73,8 @@ let rotate_registers = true
 (* Representation of hard registers by pseudo-registers *)
 
 let hard_int_reg =
-  let v = Array.make 23 Reg.dummy in
-  for i = 0 to 22 do v.(i) <- Reg.at_location Int (Reg i) done; v
+  let v = Array.make 22 Reg.dummy in
+  for i = 0 to 21 do v.(i) <- Reg.at_location Int (Reg i) done; v
 
 let hard_float_reg =
   let v = Array.make 32 Reg.dummy in
@@ -215,7 +217,7 @@ let loc_exn_bucket = phys_reg 0
 let int_dwarf_reg_numbers =
   [| 3; 4; 5; 6; 7; 8; 9; 10;
      14; 15; 16; 17; 18; 19; 20; 21;
-     22; 23; 24; 25; 26; 27;
+     22; 24; 25; 26; 27; 28;  (* r23 reserved for ALLOC_PTR *)
   |]
 
 let float_dwarf_reg_numbers =
@@ -239,7 +241,7 @@ let stack_ptr_dwarf_register_number = 1
    plus GPR28 because it is used to save the OCaml stack pointer. *)
 let destroyed_at_c_call =
   Array.of_list(List.map phys_reg
-    [0; 1; 2; 3; 4; 5; 6; 7; 22;
+    [0; 1; 2; 3; 4; 5; 6; 7; 21;  (* 21 = r28, C_CALL_TMP *)
      100; 101; 102; 103; 104; 105; 106; 107; 108; 109; 110; 111; 112; 113])
 
 let destroyed_at_oper = function
@@ -259,12 +261,12 @@ let destroyed_at_reloadretaddr = [| phys_reg 11 |]
 
 let safe_register_pressure = function
     Iextcall _ -> 13
-  | _ -> 23
+  | _ -> 22  (* r23 reserved for ALLOC_PTR *)
 
 let max_register_pressure = function
     Iextcall _ -> [| 13; 18 |]
-  | Iintoffloat | Istore(Single, _, _) -> [| 23; 31 |]
-  | _ -> [| 23; 32 |]
+  | Iintoffloat | Istore(Single, _, _) -> [| 22; 31 |]
+  | _ -> [| 22; 32 |]  (* r23 reserved for ALLOC_PTR *)
 
 (* Calling the assembler *)
 
