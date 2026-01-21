@@ -35,6 +35,9 @@ Working version
 
 ### Runtime system:
 
+- #14482: Add DWARF CFI support to POWER backend.
+  (Tim McGilchrist, review by XXXXXX)
+
 - #14416: Spawned domains will record backtraces if the parent domain has
   enabled it.
   (Nathan Taylor, review by Gabriel Scherer)
