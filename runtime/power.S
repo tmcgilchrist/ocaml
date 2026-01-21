@@ -833,7 +833,6 @@ FUNCTION caml_start_program
         stfdu   29, 8(TMP)
         stfdu   30, 8(TMP)
         stfdu   31, 8(TMP)
-/* TODO Move this to after the stdu instruction perhaps? */
 #ifdef ASM_CFI_SUPPORTED
     /* CFI for r31 (frame pointer). r31 is saved at SP + 200.
        CFA = SP + STACKSIZE = SP + 352, so r31 is at CFA - 152.
