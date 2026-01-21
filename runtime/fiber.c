@@ -522,12 +522,47 @@ int caml_try_realloc_stack(asize_t required_space)
    * multiple c_stack_links to point to the same stack since callbacks are run
    * on existing stacks. */
   {
+    ptrdiff_t delta =
+      (char*)Stack_high(new_stack) - (char*)Stack_high(old_stack);
+
+#if defined(WITH_FRAME_POINTERS) && defined(NATIVE_CODE)
+    /* Check if any c_stack_link points to old_stack. Pure-OCaml fibers
+       (e.g., effect handlers that never call C) have no c_stack_link entries.
+       For such fibers, we need to walk from SP to update frame pointers. */
+    int has_c_stack_link = 0;
     for (struct c_stack_link *link = Caml_state->c_stack;
          link != NULL;
          link = link->prev) {
       if (link->stack == old_stack) {
-        ptrdiff_t delta =
-          (char*)Stack_high(new_stack) - (char*)Stack_high(old_stack);
+        has_c_stack_link = 1;
+        break;
+      }
+    }
+
+    if (!has_c_stack_link) {
+      /* No c_stack_link for this stack - it's a pure-OCaml fiber.  Walk from
+         SP to update frame pointers.  First_frame accounts for the
+         architecture-specific gap between the saved SP and the first frame's
+         link word (zero on Power, where First_frame is the identity; e.g. 8
+         on amd64, 16 on arm64). */
+      struct stack_frame {
+        struct stack_frame* prev;
+      };
+
+      struct stack_frame* fp =
+        (struct stack_frame*)First_frame((char*)new_stack->sp);
+      while (Stack_base(old_stack) <= (value*)fp->prev &&
+             (value*)fp->prev < Stack_high(old_stack)) {
+        fp->prev = (struct stack_frame*)((char*)fp->prev + delta);
+        fp = fp->prev;
+      }
+    }
+#endif
+
+    for (struct c_stack_link *link = Caml_state->c_stack;
+         link != NULL;
+         link = link->prev) {
+      if (link->stack == old_stack) {
 #ifdef WITH_FRAME_POINTERS
         struct stack_frame {
           struct stack_frame* prev;
@@ -537,8 +572,15 @@ int caml_try_realloc_stack(asize_t required_space)
         /* Frame pointer is pushed just below the c_stack_link.
            This is somewhat tricky to guarantee when there are stack
            arguments to C calls: see caml_c_call_copy_stack_args */
+#if defined(TARGET_power)
+        /* On Power the c_stack_link has 32 reserved bytes at offset 0, so
+           reach the OCaml frame via link->sp instead (adjusted by delta,
+           which still holds the pre-realloc address). */
+        struct stack_frame* fp = (struct stack_frame*)((char*)link->sp + delta);
+#else
         struct stack_frame* fp = ((struct stack_frame*)link) - 1;
         CAMLassert(fp->prev == link->sp);
+#endif
 
         /* Rewrite OCaml frame pointers above this C frame */
         while (Stack_base(old_stack) <= (value*)fp->prev &&
