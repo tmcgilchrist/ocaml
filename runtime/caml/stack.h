@@ -48,8 +48,10 @@
 #define Wosize_gc_regs (22 /* int regs, r23 is ALLOC_PTR */ + 14 /* caller-save float regs */)
 #define Saved_return_address_raw(sp) *((intnat *)((sp) + 16))
 #define First_frame(sp) (sp)
-#define Saved_gc_regs(sp) (*(value **)((sp) + 32 + 16 + 8))
-#define Stack_header_size (32 + 16 + 16)
+/* Stack header layout: RESERVED_STACK (32) + TRAP_SIZE (48) + gc_regs (16)
+   Saved_gc_regs is at offset 8 within the gc_regs area */
+#define Saved_gc_regs(sp) (*(value **)((sp) + 32 + 48 + 8))
+#define Stack_header_size (32 + 48 + 16)
 #define CODE_POINTER_MARK_BIT 0
 #endif
 

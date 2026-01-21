@@ -24,6 +24,8 @@ open Linear
 open Emitaux
 open Emitenv
 
+let fp = Config.with_frame_pointers
+
 (* Reserved space at bottom of stack *)
 
 let reserved_stack_space = 32
@@ -34,9 +36,16 @@ let initial_stack_offset f =
   if f.fun_frame_required then
     reserved_stack_space +                    (* Including the return address *)
     size_int * f.fun_num_stack_slots.(0) +    (* Local int variables *)
-    size_float * f.fun_num_stack_slots.(1)    (* Local float variables *)
+    size_float * f.fun_num_stack_slots.(1) +  (* Local float variables *)
+    (if fp then size_int else 0)              (* Saved frame pointer r31 *)
   else
     0
+
+(* Offset where frame pointer r31 is saved, relative to SP after prologue *)
+let fp_save_offset env =
+  reserved_stack_space + env.stack_offset +
+  env.f.fun_num_stack_slots.(1) * size_float +
+  env.f.fun_num_stack_slots.(0) * size_int
 
 let frame_size env =
   let size =
@@ -61,7 +70,12 @@ let retaddr_offset env = frame_size env + 16
 
 let toc_save_offset env = frame_size env + 8
 
-let trap_size = 16
+(* Trap frame size. Must be large enough that trap data stored at
+   reserved_stack_space (32) and reserved_stack_space+8 (40) stays within
+   the trap frame and doesn't collide with the caller's LR save area at
+   old_SP + 16. With trap_size=48, trap data is at new_SP+32 = old_SP-16
+   and new_SP+40 = old_SP-8, safely inside the trap frame. *)
+let trap_size = 48
 
 (* Output a label *)
 
@@ -270,8 +284,12 @@ let emit_float_comp cmp arg =
 
 let emit_free_frame env =
   let n = frame_size env in
-  if n > 0 then
+  if n > 0 then begin
+    (* Restore frame pointer before deallocating frame *)
+    if fp && env.f.fun_frame_required then
+      `	ld	31, {emit_int (fp_save_offset env)}(1)\n`;
     `	addi	1, 1, {emit_int n}\n`
+  end
 
 (* Emit a "bl" instruction to a given symbol *)
 
@@ -401,7 +419,9 @@ module BR = Branch_relaxation.Make (struct
   let offset_pc_at_branch = 1
 
   let prologue_size f =
-    if f.fun_frame_required then 4 else 0
+    if f.fun_frame_required then
+      4 + (if fp then 2 else 0)  (* +2 for save old FP and set FP = SP *)
+    else 0
 
   let tocload_size = 2
 
@@ -433,16 +453,16 @@ module BR = Branch_relaxation.Make (struct
     | Lop(Iconst_symbol _) -> tocload_size
     | Lop(Icall_ind) -> 4
     | Lop(Icall_imm _) -> 3
-    | Lop(Itailcall_ind) -> 6
+    | Lop(Itailcall_ind) -> 6 + (if fp && f.fun_frame_required then 1 else 0)
     | Lop(Itailcall_imm { func; _ }) ->
         if func = f.fun_name
         then 1
-        else 6 + tocload_size
+        else 6 + tocload_size + (if fp && f.fun_frame_required then 1 else 0)
     | Lop(Iextcall { alloc; stack_ofs; _}) ->
         if stack_ofs > 0 then tocload_size + 4
         else if alloc then tocload_size + 2
-        else 5
-    | Lop(Istackoffset _) -> 1
+        else 5 + (if fp then 3 else 0)  (* ld+stdu+addi for fp support *)
+    | Lop(Istackoffset n) -> if fp && n > 0 then 3 else 1
     | Lop(Iload {memory_chunk; addressing_mode; is_atomic }) ->
       let loadinstr = load_mnemonic memory_chunk in
       (if is_atomic then 4 else 0) +
@@ -477,7 +497,7 @@ module BR = Branch_relaxation.Make (struct
     | Lop(Idls_get) -> 1
     | Lop(Ireturn_addr) -> 1
     | Lreloadretaddr -> 2
-    | Lreturn -> 2
+    | Lreturn -> 2 + (if fp && f.fun_frame_required then 1 else 0)  (* +1 for restore FP *)
     | Llabel _ -> 0
     | Lbranch _ -> 1
     | Lcondbranch (Ifloattest(CFle | CFnle  | CFge | CFnge), _) -> 3
@@ -487,9 +507,9 @@ module BR = Branch_relaxation.Make (struct
         + (if lbl1 = None then 0 else 1)
         + (if lbl2 = None then 0 else 1)
     | Lswitch _ -> 7 + tocload_size
-    | Lentertrap -> 1
+    | Lentertrap -> 1 + (if fp then 1 else 0)
     | Ladjust_trap_depth _ -> 0
-    | Lpushtrap _ -> 4 + tocload_size
+    | Lpushtrap _ -> (if fp then 6 else 4) + tocload_size  (* with fp: stdu, li, std, std, tocload, std, addi; without: addi, std, tocload, std, addi *)
     | Lpoptrap -> 2
     | Lraise (Lambda.Raise_regular | Lambda.Raise_reraise) -> 2
     | Lraise Lambda.Raise_notrace -> 5
@@ -591,27 +611,41 @@ let emit_call_bound_errors env =
     emit_call_nop()
 
 (* Output the assembly code for an instruction *)
-
 let emit_instr env i =
     emit_debug_info i.dbg;
     match i.desc with
     | Lend -> ()
     | Lprologue ->
-        let n = frame_size env in
-        if env.f.fun_frame_required then begin
-            `	mflr	0\n`;
-            `	std	0, {emit_int 16}(1)\n`;
-            `	std	2, {emit_int 8}(1)\n`
-         end;
-        (* Always emit CFI for LR at CFA + 16. On Power ABI, the caller saves
-           LR at [caller_SP + 16] before making a call, so LR is always at
-           CFA + 16 whether we save it ourselves or not. This ensures the
-           debugger can find the return address for unwinding. *)
-        cfi_offset ~reg: 65 (* LR *) ~offset: 16;
-        if n > 0 then begin
-            `	stdu	1, {emit_int(-n)}(1)\n`;
-            cfi_adjust_cfa_offset n
-        end
+       let n = frame_size env in
+       if env.f.fun_frame_required then begin
+           `	mflr	0\n`;
+           `	std	0, {emit_int 16}(1)\n`;
+           `	std	2, {emit_int 8}(1)\n`;
+           (* Save frame pointer before allocating frame. After stdu, this will
+              be at fp_save_offset from the new SP. *)
+           if fp then
+             `	std	31, {emit_int(fp_save_offset env - n)}(1)\n`
+        end;
+       (* Always emit CFI for LR at CFA + 16. On Power ABI, the caller saves
+          LR at [caller_SP + 16] before making a call, so LR is always at
+          CFA + 16 whether we save it ourselves or not. This ensures the
+          debugger can find the return address for unwinding. *)
+       cfi_offset ~reg: 65 (* LR *) ~offset: 16;
+       if n > 0 then begin
+           `	stdu	1, {emit_int(-n)}(1)\n`;
+           cfi_adjust_cfa_offset n;
+           (* Note: We don't emit .cfi_offset for r1 (backchain) because trap frames
+              can overwrite the backchain location. The signal frame's val_expression
+              for r1 handles SP restoration during C call unwinding. *)
+           (* Set up frame pointer = SP *)
+           if fp && env.f.fun_frame_required then begin
+             `	mr	31, 1\n`;
+             (* r31 was saved at old_SP - (n - fp_save_offset) before stdu.
+                This equals new_SP + fp_save_offset after stdu.
+                CFA = old_SP, so CFI offset = -(n - fp_save_offset) = fp_save_offset - n *)
+             cfi_offset ~reg: 31 (* r31/FP *) ~offset: (fp_save_offset env - n)
+           end
+       end;
     | Lop(Imove | Ispill | Ireload) ->
         let src = i.arg.(0) and dst = i.res.(0) in
         if src.loc <> dst.loc then begin
@@ -725,16 +759,66 @@ let emit_instr env i =
         end else begin
           (* Save OCaml stack pointer in a callee-save register *)
           `	mr	28, 1\n`;
+          cfi_remember_state ();
+          cfi_def_cfa_register ~reg:28;
+          if fp then begin
+            (* Load our caller's SP from back chain. We'll use this for the stub
+               frame's back chain to avoid duplicate frames. If we used our own SP,
+               the walker would see: stub->us->caller. But stub+16 has return addr
+               pointing to us, and our SP+16 has stale return addr also pointing
+               to us (from previous calls), causing us to appear twice.
+               By linking stub directly to our caller, we get: stub->caller,
+               and only stub+16 (return addr to us) shows us once. *)
+            `	ld	12, 0(1)\n`
+          end;
           (* Switch to C stack *)
           let offset = Domainstate.(idx_of_field Domain_c_stack) * 8 in
           `	ld	1, {emit_int offset}(30)\n`;
+          if fp then begin
+            (* Create a frame linking C stack to OCaml caller's stack.
+               This allows frame pointer walking to cross from C code back to OCaml.
+               The 32-byte frame matches RESERVED_STACK in power.S.
+               Using caller's SP (r12) instead of our SP avoids duplicate frames. *)
+            `	stdu	12, -32(1)\n`;
+            (* CFI: CFA is now at the back chain (which points to OCaml stack) *)
+            `	.cfi_escape 0x0f, 3, 0x71, 0, 0x06\n`
+              (* DW_CFA_def_cfa_expression, len=3, DW_OP_breg1(0), DW_OP_deref *)
+          end;
           emit_call func;
           emit_call_nop();
+          if fp then begin
+            (* Pop the frame we created *)
+            `	addi	1, 1, 32\n`
+          end;
           (* Switch back to OCaml stack *)
-          `	mr	1, 28\n`
+          `	mr	1, 28\n`;
+          cfi_restore_state ()
         end
     | Lop(Istackoffset n) ->
-        `	addi	1, 1, {emit_int (-n)}\n`;
+        (* When allocating stack space (n > 0), we MUST use stdu to create a valid
+           back chain. This is required because caml_c_call_stack_args in power.S
+           reads the back chain at SP+0 to find the actual caller's frame (skipping
+           the parameter frame). Without a valid back chain, the runtime crashes.
+
+           When frame pointers are enabled, we also copy LR to the new frame's
+           LR save area for frame pointer walking.
+
+           When deallocating (n < 0), we use addi since we're popping back to
+           a frame that already has a valid back chain. *)
+        if n > 0 then begin
+          if fp then begin
+            (* Load LR from current frame's LR save area for frame pointer walking *)
+            `	ld	0, {emit_int (retaddr_offset env)}(1)\n`
+          end;
+          (* Always use stdu to create valid back chain *)
+          `	stdu	1, {emit_int (-n)}(1)\n`;
+          if fp then begin
+            (* Save LR at new frame's LR save area *)
+            `	std	0, {emit_int (n + 16)}(1)\n`
+          end
+        end else
+          `	addi	1, 1, {emit_int (-n)}\n`;
+        (* Update stack_offset and emit CFI for both allocation and deallocation *)
         adjust_stack_offset env n
     | Lop(Iload { memory_chunk; addressing_mode; is_atomic }) ->
         let loadinstr = load_mnemonic memory_chunk in
@@ -929,11 +1013,27 @@ let emit_instr env i =
         `	bctr\n`;
         env.jumptables <- List.rev_append (Array.to_list jumptbl) env.jumptables
     | Lentertrap ->
-        emit_reload_toc env
+        emit_reload_toc env;
+        (* After exception unwinding, FP (r31) is stale. Restore FP = SP. *)
+        if fp then
+          `	mr	31, 1\n`
     | Ladjust_trap_depth { delta_traps } ->
         adjust_stack_offset env (trap_size * delta_traps)
     | Lpushtrap { lbl_handler; } ->
-        `	addi	1, 1, {emit_int (-trap_size)}\n`;
+        (* When frame pointers are enabled, use stdu to maintain the back chain.
+           This allows frame pointer walking to traverse through trap frames.
+           After stdu, we must clear the LR save area at back_chain+16 (which is
+           now at SP+trap_size+16) because stale data there could cause the frame
+           walker to see incorrect symbols. Setting it to 0 makes backtrace_symbol
+           skip this frame (returning NULL for 0 retaddr). *)
+        if fp then begin
+          `	stdu	1, {emit_int (-trap_size)}(1)\n`;
+          (* Clear LR save area at back_chain+16 = SP+trap_size+16 *)
+          `	li	0, 0\n`;
+          `	std	0, {emit_int (trap_size + 16)}(1)\n`
+        end
+        else
+          `	addi	1, 1, {emit_int (-trap_size)}\n`;
         adjust_stack_offset env trap_size;
         `	std	29, {emit_int reserved_stack_space}(1)\n`;
         emit_tocload emit_gpr 29 (TocLabel lbl_handler);

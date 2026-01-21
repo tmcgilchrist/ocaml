@@ -12,7 +12,11 @@
    reference = "${test_source_directory}/stack_realloc.reference";
    arch_amd64;
    native;
- }
+}  {
+   reference = "${test_source_directory}/stack_realloc.arm64.reference";
+   arch_power;
+   native;
+   }
 *)
 
 open Effect
