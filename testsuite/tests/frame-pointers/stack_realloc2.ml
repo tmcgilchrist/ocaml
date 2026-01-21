@@ -5,7 +5,7 @@
  (* NOTE clang on macOS and gcc on Linux are less eager to inline
     certain C functions in the runtime. *)
  if bsd then flags = "-cclib -lexecinfo";
- arch_arm64 || arch_amd64 || arch_riscv;
+ arch_arm64 || arch_amd64 || arch_riscv || arch_power;
  reference = "${test_source_directory}/stack_realloc2.${arch}.reference";
  native;
  *)

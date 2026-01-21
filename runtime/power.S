@@ -36,14 +36,30 @@
 #define TRAP_PTR 29
 #define DOMAIN_STATE_PTR 30
 #define ALLOC_PTR 23
-#define FRAME_PTR 31            /* Frame pointer (when enabled via --enable-frame-pointers) */
+#define FRAME_PTR 31
+
+/* gc_regs bucket: integer reg at index i is stored at offset i*8 (matching
+   proc.ml), then the caller-save floats.  Without frame pointers r31 is an
+   extra allocatable integer register, so there is one more integer slot. */
+#ifdef WITH_FRAME_POINTERS
+#define NUM_INT_GC_REGS 22
+#else
+#define NUM_INT_GC_REGS 23
+#endif
+#define GC_FLOAT_OFS(n) ((NUM_INT_GC_REGS + (n)) * 8)
 
 /* Stack layout */
 #define RESERVED_STACK 32
 #define LR_SAVE 16
 #define TOC_SAVE_PARENT 8
 #define TOC_SAVE 24
+/* Trap frame size, must match emit.mlp's [trap_size].
+   With frame pointers we need >= RESERVED_STACK + 16; otherwise 16 suffices. */
+#ifdef WITH_FRAME_POINTERS
+#define TRAP_SIZE 48
+#else
 #define TRAP_SIZE 16
+#endif
 #define TRAP_HANDLER_OFFSET 8
 #define TRAP_PREVIOUS_OFFSET 0
 #define CALLBACK_LINK_SIZE 32
@@ -79,6 +95,7 @@
  */
 
 #define DW_REG_sp 1
+#define DW_REG_lr 65
 
 /* Function definitions */
 
@@ -135,7 +152,7 @@ caml_hot__code_end:
    /* Save return address in caller's frame. */
         mflr    0
         std     0, LR_SAVE(SP)
-        CFI_OFFSET(65, LR_SAVE) /* LR (DWARF reg 65) saved at CFA + 16 */
+        CFI_OFFSET(DW_REG_lr, LR_SAVE)  /* LR saved at CFA + LR_SAVE */
 .endm
 
 .macro LEAVE_FUNCTION
@@ -143,6 +160,20 @@ caml_hot__code_end:
         ld      0, LR_SAVE(SP)
         mtlr    0
 .endm
+
+/* UPDATE_BASE_POINTER: update the fiber's back chain (bottom of the fiber
+   stack, a fixed -(16 + TRAP_SIZE + RESERVED_STACK) from the stack_handler)
+   to point at the current frame, so frame-pointer walking traverses a resumed
+   fiber. Must not touch fiber_bottom+16: that holds f's return address, so the
+   walker legitimately shows caml_runstack as the intermediate frame. */
+#ifdef WITH_FRAME_POINTERS
+.macro UPDATE_BASE_POINTER handler_reg
+        std     SP, -(16 + TRAP_SIZE + RESERVED_STACK)(\handler_reg)
+.endm
+#else
+.macro UPDATE_BASE_POINTER handler_reg
+.endm
+#endif
 
 /* Accessing global variables.  */
 
@@ -192,7 +223,7 @@ caml_hot__code_end:
       LR was saved at OCaml_SP + 16 before the switch, so LR is at CFA + 16 */
        .cfi_escape DW_CFA_def_cfa_expression, 3,                      \
           DW_OP_breg + DW_REG_sp, Cstack_sp_offset, DW_OP_deref
-       CFI_OFFSET(65, LR_SAVE) /* LR at CFA + LR_SAVE */
+       CFI_OFFSET(DW_REG_lr, LR_SAVE)  /* LR saved at CFA + LR_SAVE */
    /* Tell the debugger that the interrupted SP value equals CFA.
       This is needed for proper unwinding through the signal frame. */
        .cfi_escape DW_CFA_val_expression, DW_REG_sp, 1, DW_OP_call_frame_cfa
@@ -242,23 +273,26 @@ caml_hot__code_end:
        std      26, 0x098(TMP)
        std      27, 0x0A0(TMP)
        std      28, 0x0A8(TMP)
+#ifndef WITH_FRAME_POINTERS
+    /* r31 is an allocatable register (frame pointers off): save it too */
        std      31, 0x0B0(TMP)
+#endif
     /* Save caller-save floating-point registers */
     /* (callee-saves are preserved by C functions) */
-       stfd     0,  0x0B8(TMP)
-       stfd     1,  0x0C0(TMP)
-       stfd     2,  0x0C8(TMP)
-       stfd     3,  0x0D0(TMP)
-       stfd     4,  0x0D8(TMP)
-       stfd     5,  0x0E0(TMP)
-       stfd     6,  0x0E8(TMP)
-       stfd     7,  0x0F0(TMP)
-       stfd     8,  0x0F8(TMP)
-       stfd     9,  0x100(TMP)
-       stfd     10, 0x108(TMP)
-       stfd     11, 0x110(TMP)
-       stfd     12, 0x118(TMP)
-       stfd     13, 0x120(TMP)
+       stfd     0,  GC_FLOAT_OFS(0)(TMP)
+       stfd     1,  GC_FLOAT_OFS(1)(TMP)
+       stfd     2,  GC_FLOAT_OFS(2)(TMP)
+       stfd     3,  GC_FLOAT_OFS(3)(TMP)
+       stfd     4,  GC_FLOAT_OFS(4)(TMP)
+       stfd     5,  GC_FLOAT_OFS(5)(TMP)
+       stfd     6,  GC_FLOAT_OFS(6)(TMP)
+       stfd     7,  GC_FLOAT_OFS(7)(TMP)
+       stfd     8,  GC_FLOAT_OFS(8)(TMP)
+       stfd     9,  GC_FLOAT_OFS(9)(TMP)
+       stfd     10, GC_FLOAT_OFS(10)(TMP)
+       stfd     11, GC_FLOAT_OFS(11)(TMP)
+       stfd     12, GC_FLOAT_OFS(12)(TMP)
+       stfd     13, GC_FLOAT_OFS(13)(TMP)
     /* Save bucket to gc_regs */
        std      TMP, Caml_state(gc_regs)
 .endm
@@ -291,23 +325,26 @@ caml_hot__code_end:
        ld       26, 0x098(TMP)
        ld       27, 0x0A0(TMP)
        ld       28, 0x0A8(TMP)
+#ifndef WITH_FRAME_POINTERS
+    /* r31 is an allocatable register (frame pointers off): restore it too */
        ld       31, 0x0B0(TMP)
+#endif
     /* Restore caller-save floating-point registers
        (callee-saves are preserved by C functions) */
-       lfd      0,  0x0B8(TMP)
-       lfd      1,  0x0C0(TMP)
-       lfd      2,  0x0C8(TMP)
-       lfd      3,  0x0D0(TMP)
-       lfd      4,  0x0D8(TMP)
-       lfd      5,  0x0E0(TMP)
-       lfd      6,  0x0E8(TMP)
-       lfd      7,  0x0F0(TMP)
-       lfd      8,  0x0F8(TMP)
-       lfd      9,  0x100(TMP)
-       lfd      10, 0x108(TMP)
-       lfd      11, 0x110(TMP)
-       lfd      12, 0x118(TMP)
-       lfd      13, 0x120(TMP)
+       lfd      0,  GC_FLOAT_OFS(0)(TMP)
+       lfd      1,  GC_FLOAT_OFS(1)(TMP)
+       lfd      2,  GC_FLOAT_OFS(2)(TMP)
+       lfd      3,  GC_FLOAT_OFS(3)(TMP)
+       lfd      4,  GC_FLOAT_OFS(4)(TMP)
+       lfd      5,  GC_FLOAT_OFS(5)(TMP)
+       lfd      6,  GC_FLOAT_OFS(6)(TMP)
+       lfd      7,  GC_FLOAT_OFS(7)(TMP)
+       lfd      8,  GC_FLOAT_OFS(8)(TMP)
+       lfd      9,  GC_FLOAT_OFS(9)(TMP)
+       lfd      10, GC_FLOAT_OFS(10)(TMP)
+       lfd      11, GC_FLOAT_OFS(11)(TMP)
+       lfd      12, GC_FLOAT_OFS(12)(TMP)
+       lfd      13, GC_FLOAT_OFS(13)(TMP)
     /* Put gc_regs struct back in bucket linked list */
        ld       TMP2, Caml_state(gc_regs_buckets)
        std      TMP2, 0(TMP)  /* next ptr */
@@ -361,20 +398,20 @@ caml_hot__code_end:
        std      9,  0x030(TMP)
        std      10, 0x038(TMP)
     /* Save caller-save floating-point registers */
-       stfd     0,  0x0B8(TMP)
-       stfd     1,  0x0C0(TMP)
-       stfd     2,  0x0C8(TMP)
-       stfd     3,  0x0D0(TMP)
-       stfd     4,  0x0D8(TMP)
-       stfd     5,  0x0E0(TMP)
-       stfd     6,  0x0E8(TMP)
-       stfd     7,  0x0F0(TMP)
-       stfd     8,  0x0F8(TMP)
-       stfd     9,  0x100(TMP)
-       stfd     10, 0x108(TMP)
-       stfd     11, 0x110(TMP)
-       stfd     12, 0x118(TMP)
-       stfd     13, 0x120(TMP)
+       stfd     0,  GC_FLOAT_OFS(0)(TMP)
+       stfd     1,  GC_FLOAT_OFS(1)(TMP)
+       stfd     2,  GC_FLOAT_OFS(2)(TMP)
+       stfd     3,  GC_FLOAT_OFS(3)(TMP)
+       stfd     4,  GC_FLOAT_OFS(4)(TMP)
+       stfd     5,  GC_FLOAT_OFS(5)(TMP)
+       stfd     6,  GC_FLOAT_OFS(6)(TMP)
+       stfd     7,  GC_FLOAT_OFS(7)(TMP)
+       stfd     8,  GC_FLOAT_OFS(8)(TMP)
+       stfd     9,  GC_FLOAT_OFS(9)(TMP)
+       stfd     10, GC_FLOAT_OFS(10)(TMP)
+       stfd     11, GC_FLOAT_OFS(11)(TMP)
+       stfd     12, GC_FLOAT_OFS(12)(TMP)
+       stfd     13, GC_FLOAT_OFS(13)(TMP)
     /* Save bucket to gc_regs */
        std      TMP, Caml_state(gc_regs)
 .endm
@@ -393,20 +430,20 @@ caml_hot__code_end:
        ld       9,  0x030(TMP)
        ld       10, 0x038(TMP)
     /* Restore caller-save floating-point registers */
-       lfd      0,  0x0B8(TMP)
-       lfd      1,  0x0C0(TMP)
-       lfd      2,  0x0C8(TMP)
-       lfd      3,  0x0D0(TMP)
-       lfd      4,  0x0D8(TMP)
-       lfd      5,  0x0E0(TMP)
-       lfd      6,  0x0E8(TMP)
-       lfd      7,  0x0F0(TMP)
-       lfd      8,  0x0F8(TMP)
-       lfd      9,  0x100(TMP)
-       lfd      10, 0x108(TMP)
-       lfd      11, 0x110(TMP)
-       lfd      12, 0x118(TMP)
-       lfd      13, 0x120(TMP)
+       lfd      0,  GC_FLOAT_OFS(0)(TMP)
+       lfd      1,  GC_FLOAT_OFS(1)(TMP)
+       lfd      2,  GC_FLOAT_OFS(2)(TMP)
+       lfd      3,  GC_FLOAT_OFS(3)(TMP)
+       lfd      4,  GC_FLOAT_OFS(4)(TMP)
+       lfd      5,  GC_FLOAT_OFS(5)(TMP)
+       lfd      6,  GC_FLOAT_OFS(6)(TMP)
+       lfd      7,  GC_FLOAT_OFS(7)(TMP)
+       lfd      8,  GC_FLOAT_OFS(8)(TMP)
+       lfd      9,  GC_FLOAT_OFS(9)(TMP)
+       lfd      10, GC_FLOAT_OFS(10)(TMP)
+       lfd      11, GC_FLOAT_OFS(11)(TMP)
+       lfd      12, GC_FLOAT_OFS(12)(TMP)
+       lfd      13, GC_FLOAT_OFS(13)(TMP)
     /* Put gc_regs struct back in bucket linked list */
        ld       TMP2, Caml_state(gc_regs_buckets)
        std      TMP2, 0(TMP)  /* next ptr */
@@ -512,8 +549,27 @@ FUNCTION caml_c_call
    /* Save return address in caller's frame AND in a callee-save register */
         mflr    C_CALL_RET_ADDR
         std     C_CALL_RET_ADDR, LR_SAVE(SP)
+#ifdef WITH_FRAME_POINTERS
+   /* Save OCaml SP for frame pointer linking.
+      Must use C_CALL_TMP (callee-saved r28) because SWITCH_OCAML_TO_C
+      clobbers TMP. */
+        mr      C_CALL_TMP, SP
    /* Switch from OCaml to C */
         SWITCH_OCAML_TO_C
+   /* Create a frame whose back chain points to OCaml stack.
+      This allows frame pointer walking to cross from C to OCaml,
+      similar to ARM64's ENTER_FUNCTION. */
+        stdu    C_CALL_TMP, -RESERVED_STACK(SP)
+#ifdef ASM_CFI_SUPPORTED
+   /* After stdu, SP moved away from c_stack_link. The back chain at SP+0
+      contains OCaml_SP (from C_CALL_TMP). Update CFI to read CFA from there. */
+        .cfi_escape DW_CFA_def_cfa_expression, 3, \
+           DW_OP_breg + DW_REG_sp, 0, DW_OP_deref
+#endif
+#else
+   /* Switch from OCaml to C (no extra frame needed without frame pointers) */
+        SWITCH_OCAML_TO_C
+#endif
    /* Make the exception handler and alloc ptr available to the C code */
         std     ALLOC_PTR, Caml_state(young_ptr)
         std     TRAP_PTR, Caml_state(exn_handler)
@@ -523,6 +579,16 @@ FUNCTION caml_c_call
         mr      C_CALL_TOC, 2   /* save current TOC in a callee-save register */
         bctrl
         mr      2, C_CALL_TOC   /* restore current TOC */
+#ifdef WITH_FRAME_POINTERS
+    /* Pop the frame we created */
+        addi    SP, SP, RESERVED_STACK
+#ifdef ASM_CFI_SUPPORTED
+   /* After popping, SP points to c_stack_link again. Restore CFI to read
+      CFA from Cstack_sp (offset 40), matching SWITCH_OCAML_TO_C output. */
+        .cfi_escape DW_CFA_def_cfa_expression, 3, \
+           DW_OP_breg + DW_REG_sp, Cstack_sp_offset, DW_OP_deref
+#endif
+#endif
     /* Restore return address (in register C_CALL_RET_ADDR, preserved by C) */
         mtlr    C_CALL_RET_ADDR
     /* Reload new allocation pointer and exception pointer */
@@ -550,11 +616,27 @@ FUNCTION caml_c_call_stack_args
         CFI_STARTPROC
         CFI_SIGNAL_FRAME
    /* Extra arguments to be passed on stack:
-      STACK_ARG_BYTES at offsets 32 to 32 + STACK_ARG_BYTES from SP */
-        mr      C_CALL_TMP, SP
-   /* Save return address in caller's frame AND in a callee-save register */
+      STACK_ARG_BYTES at offsets 32 to 32 + STACK_ARG_BYTES from SP.
+      C_CALL_TOC (r26, callee-saved) holds the OCaml SP from which the
+      arguments are copied below. */
+        mr      C_CALL_TOC, SP
+#ifdef WITH_FRAME_POINTERS
+   /* Power does not need caml_c_call_copy_stack_args (used by the register-FP
+      arches, see ocaml/ocaml#13635): stack reallocation locates OCaml frame
+      pointers via c_stack_link->sp and the in-memory back chain (see
+      caml_try_realloc_stack in fiber.c), so it never walks the C-stack region
+      where these arguments are pushed. */
+   /* SP is a parameter frame; its back chain points to the actual function
+      frame.  Skip the parameter frame so the frame walker does not see it
+      twice. */
+        ld      C_CALL_TMP, 0(SP)       /* actual function frame */
+#endif
+   /* Save return address in a callee-save register */
         mflr    C_CALL_RET_ADDR
+#ifndef WITH_FRAME_POINTERS
+   /* Without frame pointers, save it in the caller's frame as usual */
         std     C_CALL_RET_ADDR, LR_SAVE(SP)
+#endif
    /* Switch from OCaml to C */
         SWITCH_OCAML_TO_C
    /* Make the exception handler and alloc ptr available to the C code */
@@ -562,14 +644,33 @@ FUNCTION caml_c_call_stack_args
         std     TRAP_PTR, Caml_state(exn_handler)
    /* Reserve STACK_ARG_BYTES bytes on the C stack */
         subfc   SP, STACK_ARG_BYTES, SP
-   /* Copy from OCaml SP + [32...32+STACK_ARG_BYTES)
+#ifdef WITH_FRAME_POINTERS
+   /* Set up back chain pointing to actual OCaml function frame
+      (not param frame).
+      This allows frame pointer walking to cross from C to OCaml correctly. */
+        std     C_CALL_TMP, 0(SP)
+#ifdef ASM_CFI_SUPPORTED
+   /* After subfc + std, SP moved away from c_stack_link. The back chain at SP+0
+      contains OCaml_SP (from C_CALL_TMP). Update CFI to read CFA from there. */
+        .cfi_escape DW_CFA_def_cfa_expression, 3, \
+           DW_OP_breg + DW_REG_sp, 0, DW_OP_deref
+#endif
+#endif
+   /* Copy from OCaml SP (in C_CALL_TOC) + [32...32+STACK_ARG_BYTES)
            to C SP + [32...32+STACK_ARG_BYTES) */
         addi    TMP, STACK_ARG_BYTES, 32 - 8
-1:      ldx     0, C_CALL_TMP, TMP
+1:      ldx     0, C_CALL_TOC, TMP
         stdx    0, SP, TMP
         addi    TMP, TMP, -8
         cmpdi   TMP, 32
         bge     1b
+#ifdef WITH_FRAME_POINTERS
+   /* Save return address in OCaml caller's frame for frame pointer walking.
+      Must be AFTER the copy loop because main_SP + 16
+      (= param_SP + stack_ofs + 16)
+      can overlap with the last argument slot in the parameter frame. */
+        std     C_CALL_RET_ADDR, LR_SAVE(C_CALL_TMP)
+#endif
     /* Call C function (address in C_CALL_FUN) */
         mtctr   C_CALL_FUN
         mr      12, C_CALL_FUN
@@ -578,6 +679,15 @@ FUNCTION caml_c_call_stack_args
         mr      2, C_CALL_TOC   /* restore current TOC */
     /* Pop the extra stack space used */
         add     SP, SP, STACK_ARG_BYTES
+#ifdef WITH_FRAME_POINTERS
+#ifdef ASM_CFI_SUPPORTED
+   /* Undo the CFA override above (SP is back at the c_stack_link, so restore
+      the CFA = *(SP + Cstack_sp_offset) rule set by SWITCH_OCAML_TO_C).
+      Only needed with frame pointers; otherwise that rule was never changed. */
+        .cfi_escape DW_CFA_def_cfa_expression, 3, \
+           DW_OP_breg + DW_REG_sp, Cstack_sp_offset, DW_OP_deref
+#endif
+#endif
     /* Restore return address (in register C_CALL_RET_ADDR, preserved by C) */
         mtlr    C_CALL_RET_ADDR
     /* Reload new allocation pointer and exception pointer */
@@ -736,7 +846,7 @@ FUNCTION caml_start_program
     /* Save return address and TOC pointer into caller's frame */
         mflr    0
         std     0, (STACKSIZE + LR_SAVE)(SP)
-        CFI_OFFSET(65, LR_SAVE) /* LR saved at CFA + LR_SAVE */
+        CFI_OFFSET(DW_REG_lr, LR_SAVE) /* LR saved at CFA + LR_SAVE */
         std     2, (STACKSIZE + TOC_SAVE_PARENT)(SP)
     /* Save all callee-save registers */
         addi    TMP, SP, CALLBACK_LINK_SIZE + RESERVED_STACK - 8
@@ -776,6 +886,15 @@ FUNCTION caml_start_program
         stfdu   29, 8(TMP)
         stfdu   30, 8(TMP)
         stfdu   31, 8(TMP)
+#ifdef ASM_CFI_SUPPORTED
+#ifdef WITH_FRAME_POINTERS
+    /* CFI for r31 (frame pointer). r31 is saved at SP + 200.
+       CFA = SP + STACKSIZE = SP + 352, so r31 is at CFA - 152.
+       This is needed for unwinding through C frames compiled with
+       frame pointers. */
+        CFI_OFFSET(FRAME_PTR, -152)
+#endif
+#endif
     /* Load domain state pointer from argument */
         mr      DOMAIN_STATE_PTR, START_PRG_DOMAIN_STATE_PTR
     /* Reload allocation pointer */
@@ -790,8 +909,11 @@ FUNCTION caml_start_program
     /* Store the gc_regs for callbacks during a GC */
         ld      0, Caml_state(gc_regs)
         stdu    0, -8(TMP)
-    /* Store the C stack pointer for DWARF unwinding */
-        stdu    SP, -8(TMP)
+    /* Store the C caller's stack pointer for frame pointer walking.
+       We need caller's SP (before caml_start_program's frame), not our SP.
+       Our frame is STACKSIZE bytes, so caller's SP = SP + STACKSIZE. */
+        addi    0, SP, STACKSIZE
+        stdu    0, -8(TMP)
     /* Setup a trap frame to catch exceptions escaping the OCaml code */
         addi    TMP, TMP, -TRAP_SIZE
         ld      0, Caml_state(exn_handler)
@@ -801,19 +923,30 @@ FUNCTION caml_start_program
         mr      TRAP_PTR, TMP
     /* Switch stacks, reserving 32 bytes at the bottom of the OCaml stack */
         addi    SP, TMP, -RESERVED_STACK
+    /* Set up back chain to link OCaml stack back to C stack.
+       The C stack SP (caml_start_program's frame) was stored at
+       SP + RESERVED_STACK + TRAP_SIZE (see stdu SP, -8(TMP) above).
+       Load it and store as the back chain so frame pointer walking
+       can continue from OCaml stack to C stack. */
+        ld      0, (RESERVED_STACK + TRAP_SIZE)(SP)
+        std     0, 0(SP)
+    /* Set up frame pointer for OCaml code. This must be done before
+       entering OCaml so that r31 = OCaml SP at OCaml function entry. */
+#ifdef WITH_FRAME_POINTERS
+        mr      FRAME_PTR, SP
+#endif
 
 #ifdef ASM_CFI_SUPPORTED
         CFI_REMEMBER_STATE
-        /* DWARF expression to compute CFA when on OCaml stack:
-           SP + RESERVED_STACK + TRAP_SIZE contains the C stack pointer.
-           CFA = *(SP + 48) + STACKSIZE
-           STACKSIZE (352) is split into 127+127+98 for ULEB128 encoding. */
-        .cfi_escape DW_CFA_def_cfa_expression, 3 + 2 + 2 + 2,             \
-            DW_OP_breg + DW_REG_sp, RESERVED_STACK + TRAP_SIZE, DW_OP_deref, \
-            DW_OP_plus_uconst, 127,                                       \
-            DW_OP_plus_uconst, 127,                                       \
-            DW_OP_plus_uconst, 98
-        CFI_OFFSET(65, LR_SAVE) /* LR at CFA + LR_SAVE */
+        /* DWARF expression: CFA = *(SP + RESERVED_STACK + TRAP_SIZE).
+           At this offset we stored the C caller's SP (= CFA) before
+           entering OCaml.  We use breg1(0) + plus_uconst because the
+           offset (80) exceeds the single-byte SLEB128 range of breg. */
+        .cfi_escape DW_CFA_def_cfa_expression, 5,                          \
+            DW_OP_breg + DW_REG_sp, 0,                                     \
+            DW_OP_plus_uconst, (RESERVED_STACK + TRAP_SIZE),               \
+            DW_OP_deref
+        CFI_OFFSET(DW_REG_lr, LR_SAVE) /* LR saved at CFA + LR_SAVE */
 #endif
     /* Call the OCaml code (address in START_PRG_ARG) */
         mtctr   START_PRG_ARG
@@ -1127,6 +1260,12 @@ FUNCTION caml_reperform
         ld      7, Handler_parent(TMP) /* r7 := cont_head */
         std     5, Handler_parent(TMP) /* parent(cont_tail) := current_stack */
         addi    6, 5, 1 /* r6 := Val_ptr(current_stack) */
+    /* Need to update the oldest saved frame pointer here as the execution of
+       the handler may have caused the current fiber stack to reallocate.
+       Save LR first so the return address at SP+16 is valid for
+       frame walking. */
+        ENTER_FUNCTION
+        UPDATE_BASE_POINTER TMP
         b       .Ldo_perform
         CFI_ENDPROC
 ENDFUNCTION caml_reperform
@@ -1170,6 +1309,13 @@ FUNCTION caml_resume
         ld      7, Stack_handler(3)
         ld      8, Caml_state(current_stack)
         std     8, Handler_parent(7)
+    /* Point cont_tail's back chain (bottom of the fiber stack; r7 =
+       Stack_handler(cont_tail)) at the current frame so a walker goes through
+       the effect handler.  ENTER_FUNCTION must run first: on POWER a frame's
+       return address is at back_chain+16, and the fiber's back chain will
+       point at handler_SP, so handler_SP+16 needs a valid return address. */
+        ENTER_FUNCTION
+        UPDATE_BASE_POINTER 7
     /* Switch stacks and run code */
         SWITCH_OCAML_STACKS 8, 6
         mr      3, 5
@@ -1204,15 +1350,26 @@ FUNCTION caml_runstack
   /* r3: fiber
      r4: fun
      r5: arg */
-    /* save return address and TOC on old stack */
+    /* Save return address, create frame, and save TOC */
         ENTER_FUNCTION
-        std     2, TOC_SAVE_PARENT(SP)
+        stdu    SP, -RESERVED_STACK(SP)
+        CFI_ADJUST(RESERVED_STACK)
+        std     2, TOC_SAVE(SP)
         addi    3, 3, -1   /* r3 := Ptr_val(r3) */
         ld      12, 0(4)   /* r12 := code pointer */
         mtctr   12         /* CTR := code pointer */
     /*  save old stack pointer and exception handler */
         ld      8, Caml_state(current_stack) /* r8 := old stack */
-        std     SP, Stack_sp(8)
+#ifdef WITH_FRAME_POINTERS
+        /* Save caml_runstack's frame in r25 (callee-save) for later use as
+           fiber_bottom's back_chain. */
+        addi    25, SP, RESERVED_STACK
+#endif
+    /* Stack_sp records caml_runstack's entry frame (= SP + RESERVED_STACK,
+       undoing the stdu above), where ENTER_FUNCTION saved LR.
+       LEAVE_FUNCTION then recovers LR at Stack_sp + 16. */
+        addi    0, SP, RESERVED_STACK
+        std     0, Stack_sp(8)
         std     TRAP_PTR, Stack_exception(8)
     /* Load new stack pointer and set parent */
         ld      TMP, Stack_handler(3)
@@ -1232,13 +1389,47 @@ FUNCTION caml_runstack
         mr      TRAP_PTR, 9
     /* Switch to the new stack, after reserving 32 bytes at bottom */
         addi    SP, 9, -RESERVED_STACK
+#ifdef WITH_FRAME_POINTERS
+    /* Set up back chain to link new stack back to old stack
+       (caml_runstack's frame) */
+        std     25, 0(SP)
+#else
+        /* Load caml_runstack's frame pointer from old stack */
+        ld      0, Stack_sp(8)
+        std     0, 0(SP)         /* Store as back chain */
+#endif
+#ifdef ASM_CFI_SUPPORTED
+        CFI_REMEMBER_STATE
+        .cfi_escape DW_CFA_def_cfa_expression, 5+3,                           \
+            DW_OP_breg + DW_REG_sp, 0,                                        \
+            DW_OP_plus_uconst,                                                \
+              (RESERVED_STACK + TRAP_SIZE                                     \
+               + 8 /* C stack SP for DWARF (unused) */                       \
+               + 8 /* gc_regs slot (unused) */                               \
+               + Handler_parent_offset),                                      \
+            DW_OP_deref,                                                      \
+            DW_OP_plus_uconst, Stack_sp_offset, DW_OP_deref
+        CFI_OFFSET(DW_REG_lr, LR_SAVE)  /* LR saved at CFA + LR_SAVE */
+#endif
+    /* Pre-initialize the LR save area at SP+16 with the return address.
+       This ensures the GC can find LR even if the first OCaml function
+       doesn't save it (when fun_frame_required = false). The address stored
+       is .Lframe_runstack + 4 (the instruction after bctrl). */
+        bl      .Linit_runstack_lr
+.Linit_runstack_lr:
+        mflr    TMP
+        addi    TMP, TMP, (.Lframe_runstack - .Linit_runstack_lr + 4)
+        std     TMP, LR_SAVE(SP)
     /* Call the function on the new stack */
         mr      3, 5   /* argument */
 .Lframe_runstack:
         bctrl
     /* Clean up on return */
-        addi    8, SP, (RESERVED_STACK + TRAP_SIZE + 16)
-                                       /* r8 := stack_handler */
+    /* Load stack_handler from current_stack->handler.
+       We cannot compute it from SP because the initial Stack_sp has a variable
+       offset (wsize) from the handler. */
+        ld      8, Caml_state(current_stack)
+        ld      8, Stack_handler(8) /* r8 := stack_handler */
         ld      25, Handler_value(8) /* saved across C call */
 1:
         mr      26, 3                /* save return value across C call */
@@ -1248,15 +1439,19 @@ FUNCTION caml_runstack
         std     TMP, Caml_state(current_stack)
         ld      TRAP_PTR, Stack_exception(TMP)
         std     TRAP_PTR, Caml_state(exn_handler)
-    /* restore saved TOC */
+    /* Restore frame pointer from Stack_sp(parent).
+       caml_runstack saves (SP + RESERVED_STACK) to Stack_sp, so we load it
+       and subtract RESERVED_STACK to get the actual frame where
+       TOC was saved. */
         ld      27, Stack_sp(TMP)    /* saved across C calls */
-        ld      2, TOC_SAVE_PARENT(27)
+        ld      2, (TOC_SAVE - RESERVED_STACK)(27)
     /* free old stack by switching directly to c_stack;
        this is a no-alloc call */
         ld      SP, Caml_state(c_stack)
         Far_call(caml_free_stack)
-    /* switch directly to parent stack */
+    /* switch directly to parent stack (caml_runstack's frame) */
         mr      SP, 27 /* OCaml stack */
+        CFI_RESTORE_STATE
 #if defined(WITH_THREAD_SANITIZER)
     /* Signal to TSan that we exit caml_runstack (no registers to save here) */
         SWITCH_OCAML_TO_C
@@ -1274,7 +1469,11 @@ FUNCTION caml_runstack
         LEAVE_FUNCTION
         bctr
 .Lfiber_exn_handler:
-        addi    8, SP, (RESERVED_STACK + 16) /* r8 := stack_handler */
+    /* After exception, load stack_handler from current_stack->handler.
+       We cannot compute it from SP because the initial Stack_sp has a variable
+       offset (wsize) from the handler. */
+        ld      8, Caml_state(current_stack)
+        ld      8, Stack_handler(8) /* r8 := stack_handler */
         ld      25, Handler_exception(8)
         b       1b
         CFI_ENDPROC
