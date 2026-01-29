@@ -606,7 +606,6 @@ ENDFUNCTION(G(caml_c_call_stack_args))
 
 FUNCTION(G(caml_start_program))
 CFI_STARTPROC
-        CFI_SIGNAL_FRAME
 #if defined(WITH_THREAD_SANITIZER)
         lay     %r15, -8(%r15)
         CFI_ADJUST(8)
@@ -627,29 +626,46 @@ CFI_STARTPROC
         LEA_VAR(caml_program, TMP)
     /* Common code for caml_start_program and caml_callback* */
 LBL(caml_start_program):
-    /* Allocate stack frame */
+    /* Allocate stack frame (RESERVED_STACK = 160 bytes) */
+    /* First, save the backchain (previous sp) -
+       required by s390x ABI for unwinding */
+        stg     %r15, -RESERVED_STACK(%r15)
         lay     %r15, -RESERVED_STACK(%r15)
+    /* CIE has def_cfa_offset=160, so after allocating 160 bytes:
+       CFA = (entry_sp - 160) + 160 = entry_sp. */
+#ifdef ASM_CFI_SUPPORTED
+        .cfi_escape DW_CFA_val_offset, DW_REG_r15, 0
+#endif
     /* Save all callee-save registers + return address */
-    /* GPR 6..14 at sp + 0 ... sp + 64
-       FPR 8..15 at sp + 72 ... sp + 128 */
-        stmg    %r6,%r14, 0(%r15)
-    /* r14 is at sp + 64 = entry_sp - 96. CFA = entry_sp, so offset = -96 */
-        CFI_OFFSET(14, 64 - RESERVED_STACK)
-        std     %f8, 72(%r15)
-        std     %f9, 80(%r15)
-        std     %f10, 88(%r15)
-        std     %f11, 96(%r15)
-        std     %f12, 104(%r15)
-        std     %f13, 112(%r15)
-        std     %f14, 120(%r15)
-        std     %f15, 128(%r15)
+    /* GPR 6..14 at sp + 8 ... sp + 72
+        (offset by 8 to preserve backchain at sp+0)
+       FPR 8..15 at sp + 80 ... sp + 136 */
+        stmg    %r6,%r14, 8(%r15)
+    /* r14 is at sp + 72 = entry_sp - 88. CFA = entry_sp, so offset = -88 */
+        CFI_OFFSET(14, 72 - RESERVED_STACK)
+        std     %f8, 80(%r15)
+        std     %f9, 88(%r15)
+        std     %f10, 96(%r15)
+        std     %f11, 104(%r15)
+        std     %f12, 112(%r15)
+        std     %f13, 120(%r15)
+        std     %f14, 128(%r15)
+        std     %f15, 136(%r15)
     /* Load domain state pointer from argument */
         lgr     DOMAIN_STATE_PTR, TMP3
     /* Reload allocation pointer */
         lg      ALLOC_PTR, Caml_state(young_ptr)
     /* Build struct c_stack_link on the C stack */
+    /* First, preserve the backchain for s390x ABI unwinding. */
+        lg      TMP3, 0(%r15)
         lay     %r15, -SIZEOF_C_STACK_LINK(%r15)
+    /* Adjust CFA by 184: CFA = sp + 160 + 184 = sp + 344 = entry_sp */
         CFI_ADJUST(SIZEOF_C_STACK_LINK)
+#ifdef ASM_CFI_SUPPORTED
+    /* r15 in caller = CFA (DW_CFA_val_offset r15, 0) */
+        .cfi_escape DW_CFA_val_offset, DW_REG_r15, 0
+#endif
+        stg     TMP3, 0(%r15)           /* Restore backchain at new sp+0 */
         lg      TMP3,  Caml_state(c_stack)
         lgfi    TMP2,  0
         stg     TMP2,  Cstack_stack(%r15)
@@ -678,8 +694,8 @@ LBL(caml_start_program):
         lgr     %r15, %r8
 #ifdef ASM_CFI_SUPPORTED
         CFI_REMEMBER_STATE
-        /* CFA = entry_sp (via cfi_escape below), r14 is at entry_sp - 96 */
-        CFI_OFFSET(14, -96)
+        /* CFA = entry_sp (via cfi_escape below), r14 is at entry_sp - 88 */
+        CFI_OFFSET(14, -88)
         .cfi_escape DW_CFA_def_cfa_expression, 3 + 3,                 \
             /* %r15 points to the exn handler on the OCaml stack */   \
             /* %r15 + 16 contains the C_STACK_SP */                   \
@@ -723,16 +739,16 @@ LBL(return_result):  /* restore GC regs */
         CFI_ADJUST(-8)
 #endif
     /* Restore callee-save registers. */
-        lmg     %r6,%r14, 0(%r15)
+        lmg     %r6,%r14, 8(%r15)
         CFI_RESTORE(14)
-        ld      %f8, 72(%r15)
-        ld      %f9, 80(%r15)
-        ld      %f10, 88(%r15)
-        ld      %f11, 96(%r15)
-        ld      %f12, 104(%r15)
-        ld      %f13, 112(%r15)
-        ld      %f14, 120(%r15)
-        ld      %f15, 128(%r15)
+        ld      %f8, 80(%r15)
+        ld      %f9, 88(%r15)
+        ld      %f10, 96(%r15)
+        ld      %f11, 104(%r15)
+        ld      %f12, 112(%r15)
+        ld      %f13, 120(%r15)
+        ld      %f14, 128(%r15)
+        ld      %f15, 136(%r15)
     /* Return */
         la     %r15, RESERVED_STACK(%r15)
     /* Return to caller. */
