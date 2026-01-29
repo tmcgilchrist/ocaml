@@ -25,13 +25,18 @@ open Linear
 open Emitaux
 open Emitenv
 
+let fp = Config.with_frame_pointers
+
 let frame_size env =
   let size =
-    env.stack_offset +      (* Trap frame, outgoing parameters *)
+    env.stack_offset +                            (* Trap frame, outgoing parameters *)
     size_int * env.f.fun_num_stack_slots.(0) +    (* Local int variables *)
     size_float * env.f.fun_num_stack_slots.(1) +  (* Local float variables *)
-    (if env.f.fun_frame_required then size_addr else 0) in (* The return address *)
-  Misc.align size 8
+    (if env.f.fun_frame_required then
+       size_addr + (if fp then 8 else 0)          (* Return address + optional backchain *)
+     else 0)
+  in
+  Misc.align size 8             (* s390x requires 8-byte alignment *)
 
 let slot_offset env loc cls =
   match loc with
@@ -275,6 +280,48 @@ let name_for_specific = function
     Imultaddf -> "madbr"
   | Imultsubf -> "msdbr"
 
+let emit_prologue env =
+  let n = frame_size env in
+  (* Frame pointer support: save old SP before allocation *)
+  if fp then
+    `	lgr	%r1, %r15\n`;
+  (* Allocate stack frame *)
+  emit_stack_adjust n;
+  (* Use cfi_def_cfa_offset to SET the CFA, not adjust it.
+     The s390x CIE has a default offset of 160 for C ABI, but OCaml
+     code uses its own stack layout. CFA = sp + n after allocation. *)
+  cfi_def_cfa_offset n;
+  (* Tell GDB that r15 in caller = CFA. Without this, GDB may use
+     "same value" semantics which breaks unwinding to C code. *)
+  cfi_val_offset ~reg:15 ~offset:0;
+  if env.f.fun_frame_required then begin
+    (* Save return address to stack *)
+    `	stg	%r14, {emit_int(n - size_addr)}(%r15)\n`;
+    cfi_offset ~reg:14 ~offset:(-size_addr);
+    (* Frame pointer support: store backchain at offset 0 *)
+    if fp then
+      `	stg	%r1, 0(%r15)\n`
+  end;
+  (* CFI for frame pointer: remember state for epilogue restore *)
+  if fp then
+    `	.cfi_remember_state\n`
+
+let emit_epilogue env f =
+  let n = frame_size env in
+  if env.f.fun_frame_required then begin
+    (* Reload return address from stack *)
+    `	lg	%r14, {emit_int(n - size_addr)}(%r15)\n`
+  end;
+  (* Restore SP: via backchain if fp enabled, otherwise direct adjustment *)
+  if fp then begin
+    `	lg	%r15, 0(%r15)\n`;
+    `	.cfi_restore_state\n`
+  end else begin
+    emit_stack_adjust (-n);
+    cfi_adjust_cfa_offset (-n)
+  end;
+  f ()
+
 (* Output the assembly code for an instruction *)
 
 let emit_instr env i =
@@ -282,17 +329,7 @@ let emit_instr env i =
     match i.desc with
       Lend -> ()
     | Lprologue ->
-      let n = frame_size env in
-      emit_stack_adjust n;
-      (* Use cfi_def_cfa_offset to SET the CFA, not adjust it.
-         The s390x CIE has a default offset of 160 for C ABI, but OCaml
-         has its own stack layout. CFA = sp + n after allocation. *)
-      cfi_def_cfa_offset n;
-      cfi_val_offset ~reg:15 ~offset:0;
-      if env.f.fun_frame_required then begin
-        `	stg	%r14, {emit_int(n - size_addr)}(%r15)\n`;
-        cfi_offset ~reg:14 ~offset:(-size_addr)
-      end
+        emit_prologue env
     | Lop(Imove | Ispill | Ireload) ->
         let src = i.arg.(0) and dst = i.res.(0) in
         if src.loc <> dst.loc then begin
@@ -337,23 +374,17 @@ let emit_instr env i =
         emit_call func;
         `{record_frame env i.live (Dbg_other i.dbg)}\n`
     | Lop(Itailcall_ind) ->
-        let n = frame_size env in
-        if env.f.fun_frame_required then
-          `	lg	%r14, {emit_int(n - size_addr)}(%r15)\n`;
-        emit_stack_adjust (-n);
-        `	br	{emit_reg i.arg.(0)}\n`
+        emit_epilogue env (fun () -> `	br	{emit_reg i.arg.(0)}\n`)
     | Lop(Itailcall_imm { func; }) ->
         if func = env.f.fun_name then
           `	brcl	15, {emit_label env.f.fun_tailrec_entry_point_label}\n`
         else begin
-          let n = frame_size env in
-          if env.f.fun_frame_required then
-            `	lg	%r14, {emit_int(n - size_addr)}(%r15)\n`;
-          emit_stack_adjust (-n);
-          if !Clflags.pic_code then
-            `	brcl	15, {emit_symbol func}@PLT\n`
-          else
-            `	brcl	15, {emit_symbol func}\n`
+          emit_epilogue env (fun () ->
+            if !Clflags.pic_code then
+              `	brcl	15, {emit_symbol func}@PLT\n`
+            else
+              `	brcl	15, {emit_symbol func}\n`
+          )
         end
 
     | Lop(Iextcall {func; alloc; stack_ofs}) ->
@@ -380,7 +411,15 @@ let emit_instr env i =
         end
 
      | Lop(Istackoffset n) ->
-        emit_stack_adjust n;
+        (* When allocating stack space (n > 0) with frame pointers enabled,
+           we must maintain the backchain for frame pointer walking.
+           When deallocating (n < 0), the backchain is already correct. *)
+        if n > 0 && fp then begin
+          `	lgr	%r1, %r15\n`;
+          emit_stack_adjust n;
+          `	stg	%r1, 0(%r15)\n`
+        end else
+          emit_stack_adjust n;
         if n <> 0 then cfi_adjust_cfa_offset n;
         env.stack_offset <- env.stack_offset + n
 
@@ -593,9 +632,7 @@ let emit_instr env i =
         let n = frame_size env in
         `	lg	%r14, {emit_int(n - size_addr)}(%r15)\n`
     | Lreturn ->
-        let n = frame_size env in
-        emit_stack_adjust (-n);
-        `	br	%r14\n`
+        emit_epilogue env (fun () -> `	br	%r14\n`)
     | Llabel lbl ->
         `{emit_label lbl}:\n`
     | Lbranch lbl ->

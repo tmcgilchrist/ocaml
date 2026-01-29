@@ -93,19 +93,40 @@ caml_hot.code_end:
 
 #define RETADDR_ENTRY_SIZE   8 /* retaddr */
 
+/* Size of ENTER_FUNCTION frame and CFI offset for return address */
+#ifdef WITH_FRAME_POINTERS
+#define ENTER_FUNCTION_SIZE     16
+#define ENTER_FUNCTION_RA_CFI   -176  /* -(RESERVED_STACK + 16) */
+#else
+#define ENTER_FUNCTION_SIZE     8
+#define ENTER_FUNCTION_RA_CFI   -168  /* -(RESERVED_STACK + 8) */
+#endif
+
 /* Function prologue and epilogue */
 
+#ifdef WITH_FRAME_POINTERS
+#define ENTER_FUNCTION \
+        lgr     %r1, %r15; \
+        lay     %r15, -16(%r15); \
+        CFI_ADJUST(16); \
+        stg     %r14, 8(%r15); \
+        stg     %r1, 0(%r15)
+#define LEAVE_FUNCTION \
+        lg      %r14, 8(%r15); \
+        CFI_RESTORE(14); \
+        lg      %r15, 0(%r15); \
+        CFI_ADJUST(-16)
+#else
 #define ENTER_FUNCTION \
         lay     %r15, -8(%r15); \
         CFI_ADJUST(8); \
-        stg     %r14, 0(%r15); \
-        CFI_OFFSET(14, -168)
-
+        stg     %r14, 0(%r15)
 #define LEAVE_FUNCTION \
         lg      %r14, 0(%r15); \
         CFI_RESTORE(14); \
         la      %r15, 8(%r15); \
         CFI_ADJUST(-8)
+#endif
 
 #define PREPARE_FOR_C_CALL      CFI_REMEMBER_STATE
 #define CLEANUP_AFTER_C_CALL    CFI_RESTORE_STATE
@@ -220,6 +241,25 @@ caml_system__code_begin:
         lg      TRAP_PTR,  Stack_exception(new_stack);          \
     /* Restore return address for new_stack */                  \
         LEAVE_FUNCTION
+
+/* UPDATE_BASE_POINTER: Update the fiber's backchain slot to point to the
+   current frame. This ensures frame pointer walking works correctly after
+   resuming a fiber via effects.
+
+   The fiber's stack header layout (32 bytes below Stack_handler):
+     +0:  prev_exn_handler (8 bytes)
+     +8:  handler_addr (8 bytes)
+     +16: backchain/C_STACK_SP slot (8 bytes) <- we update this
+     +24: saved_gc_regs slot (8 bytes)
+
+   By storing the current SP at handler_reg - 16, frame pointer walkers
+   can traverse from the resumed fiber back to the resumer's stack. */
+#ifdef WITH_FRAME_POINTERS
+#define UPDATE_BASE_POINTER(handler_reg) \
+        stg     %r15, -16(handler_reg)
+#else
+#define UPDATE_BASE_POINTER(handler_reg)
+#endif
 
 /******************************************************************************/
 /* Allocation */
@@ -400,6 +440,7 @@ FUNCTION(caml_call_realloc_stack)
 CFI_STARTPROC
         CFI_SIGNAL_FRAME
         ENTER_FUNCTION
+        CFI_OFFSET(14, ENTER_FUNCTION_RA_CFI)
         SAVE_ALL_REGS
         lgr    C_ARG_1, %r12 /* requested size */
         SWITCH_OCAML_TO_C
@@ -431,6 +472,7 @@ CFI_STARTPROC
 LBL(caml_call_gc):
         CFI_SIGNAL_FRAME
         ENTER_FUNCTION
+        CFI_OFFSET(14, ENTER_FUNCTION_RA_CFI)
         SAVE_ALL_REGS
         TSAN_ENTER_FUNCTION
         SWITCH_OCAML_TO_C
@@ -502,6 +544,7 @@ FUNCTION(caml_c_call)
 CFI_STARTPROC
         CFI_SIGNAL_FRAME
         ENTER_FUNCTION
+        CFI_OFFSET(14, ENTER_FUNCTION_RA_CFI)
         TSAN_SAVE_CALLER_REGS
         TSAN_ENTER_FUNCTION
         TSAN_RESTORE_CALLER_REGS
@@ -542,6 +585,7 @@ FUNCTION(caml_c_call_stack_args)
 CFI_STARTPROC
         CFI_SIGNAL_FRAME
         ENTER_FUNCTION
+        CFI_OFFSET(14, ENTER_FUNCTION_RA_CFI)
     /* Arguments:
         C arguments         : %r2, %r3, %r4, %r5, %r6
         C function          : ADDITIONAL_ARG
@@ -1107,9 +1151,10 @@ CFI_STARTPROC
         lg      %r8, (Stack_handler-1)(%r5)
         lg      %r9, Caml_state(current_stack)
         stg     %r9, Handler_parent(%r8)
-     /* Need to update the oldest saved frame pointer here as the current fiber
-        stack may have been reallocated or we may be resuming a computation
-        that was not originally run here. */
+     /* Update the base pointer of the fiber being resumed so frame pointer
+        walking can traverse from the resumed fiber back to this frame. */
+        lg      TMP, Stack_handler(%r2)
+        UPDATE_BASE_POINTER(TMP)
         SWITCH_OCAML_STACKS(%r9, %r2)
         lgr     %r2, %r4
         br      %r6
@@ -1140,6 +1185,7 @@ CFI_STARTPROC
 #endif
         CFI_SIGNAL_FRAME
         ENTER_FUNCTION
+        CFI_OFFSET(14, ENTER_FUNCTION_RA_CFI)
     /* %r2 -> fiber, %r3 -> fun, %r4 -> arg */
         lay     %r2, -1(%r2)  /* %r2 (new stack) = Ptr_val(%r2) */
         lg      %r5,  0(%r3)  /* code pointer */
@@ -1150,6 +1196,9 @@ CFI_STARTPROC
     /* Load new stack pointer and set parent */
         lg      TMP, Stack_handler(%r2)
         stg     %r8, Handler_parent(TMP)
+    /* Set up base pointer for frame pointer walking back to caller.
+       Store caller's SP (still in %r15) at the fiber's base pointer slot. */
+        UPDATE_BASE_POINTER(TMP)
         stg     %r2, Caml_state(current_stack)
         lg      %r9, Stack_sp(%r2) /* %r9 = sp of new stack */
     /* Create an exception handler on the target stack
@@ -1228,6 +1277,7 @@ ENDFUNCTION(caml_runstack)
 FUNCTION(caml_ml_array_bound_error)
 CFI_STARTPROC
         ENTER_FUNCTION
+        CFI_OFFSET(14, ENTER_FUNCTION_RA_CFI)
     /* No registers require saving before C call to TSan */
         TSAN_ENTER_FUNCTION
         LEA_VAR(caml_array_bound_error_asm, ADDITIONAL_ARG)
