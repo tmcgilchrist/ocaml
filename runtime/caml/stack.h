@@ -56,7 +56,12 @@
 #ifdef TARGET_s390x
 #define Wosize_gc_regs (2 + 9 /* int regs */ + 16 /* float regs */)
 #define Saved_return_address_raw(sp) *((intnat *)((sp) - 8))
+#ifdef WITH_FRAME_POINTERS
+/* With frame pointers, ENTER_FUNCTION allocates 16 bytes (backchain + r14) */
+#define First_frame(sp) ((sp) + 16)
+#else
 #define First_frame(sp) ((sp) + 8)
+#endif
 #define Saved_gc_regs(sp) (*(value **)((sp) + 24))
 #define Stack_header_size 32
 #endif

@@ -38,7 +38,10 @@ Working version
 ### Build system:
 
 ### Bug fixes:
-
+- #14500: Fix CFI information emitted for s390x architecture. This helps
+  debuggers to unwind the stack correctly and print accurate backtraces
+  for OCaml code.
+  (Tim McGilchrist, review by ?????)
 
 OCaml 5.5.0
 -----------
