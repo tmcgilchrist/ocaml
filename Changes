@@ -38,7 +38,10 @@ Working version
 ### Build system:
 
 ### Bug fixes:
-
+- #14522: Missing minor heap allocations for main domain. The GC statistics
+  emitted at program exit for OCaml (using v=0x400) dit not match those
+  observed using runtime events counters.
+  (Tim McGilchrist, review by XXXXX)
 
 OCaml 5.5.0
 -----------
