@@ -1449,6 +1449,15 @@ AS_IF([test "x$enable_usdt" = "xyes"],
          [AC_DEFINE([CAML_WITH_USDT], [1],
            [Define if USDT probes are enabled])
           usdt=true
+          dnl DTrace-generated headers use $ in identifiers which triggers
+          dnl -Wdollar-in-identifier-extension under -Wpedantic on clang.
+          dnl Must be in cc/cxx_extra_warnings (not internal_cflags) so it
+          dnl appears after -Wpedantic in the compilation command.
+          AX_CHECK_COMPILE_FLAG([-Wno-dollar-in-identifier-extension],
+            [cc_extra_warnings="$cc_extra_warnings \
+-Wno-dollar-in-identifier-extension"
+             cxx_extra_warnings="$cxx_extra_warnings \
+-Wno-dollar-in-identifier-extension"], [], [$warn_error_flag])
           AC_MSG_RESULT([yes])])],
     [*],
       [AC_MSG_CHECKING([for sys/sdt.h])

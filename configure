@@ -18381,6 +18381,52 @@ else case e in #(
 printf "%s\n" "#define CAML_WITH_USDT 1" >>confdefs.h
 
           usdt=true
+                                                  as_CACHEVAR=`printf "%s\n" "ax_cv_check_cflags_$warn_error_flag_-Wno-dollar-in-identifier-extension" | sed "$as_sed_sh"`
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether the C compiler accepts -Wno-dollar-in-identifier-extension" >&5
+printf %s "checking whether the C compiler accepts -Wno-dollar-in-identifier-extension... " >&6; }
+if eval test \${$as_CACHEVAR+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e)
+  ax_check_save_flags=$CFLAGS
+  CFLAGS="$CFLAGS $warn_error_flag -Wno-dollar-in-identifier-extension"
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  eval "$as_CACHEVAR=yes"
+else case e in #(
+  e) eval "$as_CACHEVAR=no" ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+  CFLAGS=$ax_check_save_flags ;;
+esac
+fi
+eval ac_res=\$$as_CACHEVAR
+	       { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+printf "%s\n" "$ac_res" >&6; }
+if eval test \"x\$"$as_CACHEVAR"\" = x"yes"
+then :
+  cc_extra_warnings="$cc_extra_warnings \
+-Wno-dollar-in-identifier-extension"
+             cxx_extra_warnings="$cxx_extra_warnings \
+-Wno-dollar-in-identifier-extension"
+else case e in #(
+  e) : ;;
+esac
+fi
+
           { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; } ;;
 esac
