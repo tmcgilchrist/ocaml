@@ -3,6 +3,7 @@
    script = "sh ${test_source_directory}/has_usdt.sh";
    native;
    script;
+   linux || macosx;
    script = "sh ${test_source_directory}/verify_probes.sh ${program}";
    script;
 *)
