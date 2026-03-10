@@ -34,6 +34,7 @@
 #include "caml/shared_heap.h"
 #include "caml/sizeclasses.h"
 #include "caml/startup_aux.h"
+#include "caml/usdt_probes.h"
 #include "caml/weak.h"
 
 CAMLexport atomic_uintnat caml_compactions_count;
@@ -1186,6 +1187,7 @@ void caml_compact_heap(caml_domain_state* domain_state,
   cannot be evacuated to or from. */
   caml_global_barrier(participating_count);
   CAML_EV_BEGIN(EV_COMPACT_EVACUATE);
+  OCAML_USDT_GC_COMPACT_EVACUATE_BEGIN(Caml_state->id);
 
   struct caml_heap_state* heap = Caml_state->shared_heap;
 
@@ -1438,9 +1440,11 @@ void caml_compact_heap(caml_domain_state* domain_state,
     }
   }
 
+  OCAML_USDT_GC_COMPACT_EVACUATE_END(Caml_state->id);
   CAML_EV_END(EV_COMPACT_EVACUATE);
   caml_global_barrier(participating_count);
   CAML_EV_BEGIN(EV_COMPACT_FORWARD);
+  OCAML_USDT_GC_COMPACT_FORWARD_BEGIN(Caml_state->id);
 
   /* Second phase: at this point all live blocks in evacuated pools
     have been moved and their old locations' first fields now point to
@@ -1482,9 +1486,11 @@ void caml_compact_heap(caml_domain_state* domain_state,
   compact_update_ephe_list(&ephe_info->todo);
   compact_update_ephe_list(&ephe_info->live);
 
+  OCAML_USDT_GC_COMPACT_FORWARD_END(Caml_state->id);
   CAML_EV_END(EV_COMPACT_FORWARD);
   caml_global_barrier(participating_count);
   CAML_EV_BEGIN(EV_COMPACT_RELEASE);
+  OCAML_USDT_GC_COMPACT_RELEASE_BEGIN(Caml_state->id);
 
   /* Third phase: free all evacuated pools and release the mappings back to
       the OS.
@@ -1507,6 +1513,7 @@ void caml_compact_heap(caml_domain_state* domain_state,
     cur_pool = next_pool;
   }
 
+  OCAML_USDT_GC_COMPACT_RELEASE_END(Caml_state->id);
   CAML_EV_END(EV_COMPACT_RELEASE);
   caml_global_barrier(participating_count);
 

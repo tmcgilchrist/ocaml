@@ -17,7 +17,6 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 #include <stdbool.h>
 
 #include "caml/addrmap.h"
@@ -27,7 +26,6 @@
 #include "caml/domain.h"
 #include "caml/runtime_events.h"
 #include "caml/usdt_probes.h"
-#include "caml/fail.h"
 #include "caml/fiber.h"
 #include "caml/finalise.h"
 #include "caml/globroots.h"
@@ -1881,6 +1879,7 @@ void caml_mark_roots_stw (int participant_count,
   adopt_orphaned_work();
 
   CAML_EV_BEGIN(EV_MAJOR_MARK_ROOTS);
+  OCAML_USDT_GC_MAJOR_MARK_ROOTS_BEGIN(domain->id);
   {
     uintnat work_status = WAITING; /* Temporary for compare-and-swap */
     /* The domain which does the compare-and-swap then marks the
@@ -1896,11 +1895,14 @@ void caml_mark_roots_stw (int participant_count,
   }
   /* Locals, C locals, systhreads & finalisers */
   caml_do_roots (&caml_darken, darken_scanning_flags, domain, domain, 0);
+  OCAML_USDT_GC_MAJOR_MARK_ROOTS_END(domain->id);
   CAML_EV_END(EV_MAJOR_MARK_ROOTS);
 
   CAML_EV_BEGIN(EV_MAJOR_MEMPROF_ROOTS);
+  OCAML_USDT_GC_MAJOR_MEMPROF_ROOTS_BEGIN(domain->id);
   caml_memprof_scan_roots(caml_darken, darken_scanning_flags, domain,
                           domain, false);
+  OCAML_USDT_GC_MAJOR_MEMPROF_ROOTS_END(domain->id);
   CAML_EV_END(EV_MAJOR_MEMPROF_ROOTS);
 
   caml_gc_log("Marking started, %ld entries on mark stack",
@@ -1915,11 +1917,13 @@ void caml_mark_roots_stw (int participant_count,
 
   if (atomic_load_acquire(&global_roots_status) != MARKED) {
     CAML_EV_BEGIN(EV_MAJOR_MARK_OPPORTUNISTIC);
+    OCAML_USDT_GC_MAJOR_MARK_OPPORTUNISTIC_BEGIN(domain->id);
     SPIN_WAIT {
       caml_opportunistic_major_collection_slice(1000);
       if (atomic_load_acquire(&global_roots_status) == MARKED)
         break;
     }
+    OCAML_USDT_GC_MAJOR_MARK_OPPORTUNISTIC_END(domain->id);
     CAML_EV_END(EV_MAJOR_MARK_OPPORTUNISTIC);
   }
 }
@@ -2039,10 +2043,13 @@ static void stw_try_cycle_all_domains(
    * mysteriously put all domains back into mark/sweep.
    */
   CAML_EV_BEGIN(EV_MAJOR_MEMPROF_CLEAN);
+  OCAML_USDT_GC_MAJOR_MEMPROF_CLEAN_BEGIN(domain->id);
   caml_memprof_after_major_gc(domain);
+  OCAML_USDT_GC_MAJOR_MEMPROF_CLEAN_END(domain->id);
   CAML_EV_END(EV_MAJOR_MEMPROF_CLEAN);
 
   CAML_EV_BEGIN(EV_MAJOR_GC_CYCLE_DOMAINS);
+  OCAML_USDT_GC_MAJOR_GC_CYCLE_DOMAINS_BEGIN(domain->id);
 
   CAMLassert(domain == Caml_state);
   CAMLassert(caml_atomic_counter_value(&ephe_round_info.num_domains_todo) ==
@@ -2054,6 +2061,7 @@ static void stw_try_cycle_all_domains(
                         (domain, (void*)0, participating_count, participating);
 
   CAML_EV_BEGIN(EV_MAJOR_GC_STW);
+  OCAML_USDT_GC_MAJOR_GC_STW_BEGIN(domain->id);
   Caml_global_barrier_if_final(participating_count) {
     cycle_major_heap_from_stw_single(domain, (uintnat) participating_count);
   }
@@ -2127,7 +2135,9 @@ static void stw_try_cycle_all_domains(
     CAML_EV_ALLOC_FLUSH();
   }
 
+  OCAML_USDT_GC_MAJOR_GC_STW_END(domain->id);
   CAML_EV_END(EV_MAJOR_GC_STW);
+  OCAML_USDT_GC_MAJOR_GC_CYCLE_DOMAINS_END(domain->id);
   CAML_EV_END(EV_MAJOR_GC_CYCLE_DOMAINS);
 }
 
@@ -2192,6 +2202,7 @@ static void stw_try_complete_gc_phase(
   caml_domain_state** participating)
 {
   CAML_EV_BEGIN(EV_MAJOR_GC_PHASE_CHANGE);
+  OCAML_USDT_GC_MAJOR_GC_PHASE_CHANGE_BEGIN(domain->id);
 
   Caml_global_barrier_if_final(participant_count) {
     if (is_complete_phase_sweep_and_mark_main()) {
@@ -2206,6 +2217,7 @@ static void stw_try_complete_gc_phase(
     prepare_for_ephe_sweeping(domain);
   }
 
+  OCAML_USDT_GC_MAJOR_GC_PHASE_CHANGE_END(domain->id);
   CAML_EV_END(EV_MAJOR_GC_PHASE_CHANGE);
 }
 
@@ -2274,7 +2286,10 @@ static void major_collection_slice(intnat howmuch,
   adopt_orphaned_work();
 
   if (!domain_state->sweeping_done) {
-    if (log_events) CAML_EV_BEGIN(EV_MAJOR_SWEEP);
+    if (log_events) {
+      CAML_EV_BEGIN(EV_MAJOR_SWEEP);
+      OCAML_USDT_GC_MAJOR_SWEEP_BEGIN(domain_state->id);
+    }
 
     while (!domain_state->sweeping_done &&
            (budget = get_major_slice_work(mode)) > 0) {
@@ -2289,7 +2304,10 @@ static void major_collection_slice(intnat howmuch,
       }
     }
 
-    if (log_events) CAML_EV_END(EV_MAJOR_SWEEP);
+    if (log_events) {
+      OCAML_USDT_GC_MAJOR_SWEEP_END(domain_state->id);
+      CAML_EV_END(EV_MAJOR_SWEEP);
+    }
   }
 
   if (domain_state->sweeping_done && !caml_marking_started()) {
@@ -2328,7 +2346,10 @@ mark_again:
   if (caml_marking_started() &&
       !domain_state->marking_done &&
       get_major_slice_work(mode) > 0) {
-    if (log_events) CAML_EV_BEGIN(EV_MAJOR_MARK);
+    if (log_events) {
+      CAML_EV_BEGIN(EV_MAJOR_MARK);
+      OCAML_USDT_GC_MAJOR_MARK_BEGIN(domain_state->id);
+    }
 
     while (!domain_state->marking_done &&
            (budget = get_major_slice_work(mode)) > 0) {
@@ -2343,7 +2364,10 @@ mark_again:
       commit_major_slice_work(work_done);
     }
 
-    if (log_events) CAML_EV_END(EV_MAJOR_MARK);
+    if (log_events) {
+      OCAML_USDT_GC_MAJOR_MARK_END(domain_state->id);
+      CAML_EV_END(EV_MAJOR_MARK);
+    }
   }
 
   if (mode != Slice_opportunistic && caml_marking_started()) {
@@ -2382,6 +2406,7 @@ mark_again:
           saved_ephe_round > domain_state->ephe_info->round &&
           get_major_slice_work(mode) > 0) {
         CAML_EV_BEGIN(EV_MAJOR_EPHE_MARK);
+        OCAML_USDT_GC_MAJOR_EPHE_MARK_BEGIN(domain_state->id);
 
         int ephe_completed_marking = 0;
         while (domain_state->ephe_info->todo != (value) NULL &&
@@ -2399,6 +2424,7 @@ mark_again:
           }
         }
 
+        OCAML_USDT_GC_MAJOR_EPHE_MARK_END(domain_state->id);
         CAML_EV_END(EV_MAJOR_EPHE_MARK);
 
         if (domain_state->ephe_info->todo == (value)NULL) {
@@ -2420,6 +2446,7 @@ mark_again:
       if (domain_state->ephe_info->todo != 0) {
         /* Sweep the ephemeron todo list */
         CAML_EV_BEGIN(EV_MAJOR_EPHE_SWEEP);
+        OCAML_USDT_GC_MAJOR_EPHE_SWEEP_BEGIN(domain_state->id);
 
         while (domain_state->ephe_info->todo != 0 &&
                (budget = get_major_slice_work(mode)) > 0) {
@@ -2428,6 +2455,7 @@ mark_again:
           commit_major_slice_work(work_done);
         }
 
+        OCAML_USDT_GC_MAJOR_EPHE_SWEEP_END(domain_state->id);
         CAML_EV_END(EV_MAJOR_EPHE_SWEEP);
         if (domain_state->ephe_info->todo == 0) {
           (void)caml_atomic_counter_decr(&num_domains_to_ephe_sweep);
@@ -2560,10 +2588,12 @@ static void stw_finish_major_cycle (caml_domain_state* domain, void* arg,
   CAMLassert (caml_marking_started());
 
   CAML_EV_BEGIN(EV_MAJOR_FINISH_CYCLE);
+  OCAML_USDT_GC_MAJOR_FINISH_CYCLE_BEGIN(domain->id);
   while (params.saved_major_cycles == caml_major_cycles_completed) {
     major_collection_slice(10000000, participating_count, participating,
                            Slice_uninterruptible, params.force_compaction);
   }
+  OCAML_USDT_GC_MAJOR_FINISH_CYCLE_END(domain->id);
   CAML_EV_END(EV_MAJOR_FINISH_CYCLE);
 }
 
@@ -2612,6 +2642,7 @@ void caml_finish_marking (void)
 {
   if (!Caml_state->marking_done) {
     CAML_EV_BEGIN(EV_MAJOR_FINISH_MARKING);
+    OCAML_USDT_GC_MAJOR_FINISH_MARKING_BEGIN(Caml_state->id);
     empty_mark_stack();
     shrink_mark_stack();
     Caml_state->stat_major_words += Caml_state->allocated_words;
@@ -2622,6 +2653,7 @@ void caml_finish_marking (void)
     Caml_state->allocated_words_suspended = 0;
     Caml_state->allocated_words_resumed = 0;
     CAMLassert(Caml_state->marking_done);
+    OCAML_USDT_GC_MAJOR_FINISH_MARKING_END(Caml_state->id);
     CAML_EV_END(EV_MAJOR_FINISH_MARKING);
   }
 }
@@ -2630,6 +2662,7 @@ void caml_finish_sweeping (void)
 {
   if (Caml_state->sweeping_done) return;
   CAML_EV_BEGIN(EV_MAJOR_FINISH_SWEEPING);
+  OCAML_USDT_GC_MAJOR_FINISH_SWEEPING_BEGIN(Caml_state->id);
   while (!Caml_state->sweeping_done) {
     if (caml_sweep(Caml_state->shared_heap, 10) > 0) {
       /* just finished sweeping */
@@ -2640,6 +2673,7 @@ void caml_finish_sweeping (void)
     }
     caml_handle_incoming_interrupts();
   }
+  OCAML_USDT_GC_MAJOR_FINISH_SWEEPING_END(Caml_state->id);
   CAML_EV_END(EV_MAJOR_FINISH_SWEEPING);
 }
 

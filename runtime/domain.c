@@ -702,6 +702,7 @@ static
 void domain_resize_heaps_reservation_from_stw_single(uintnat new_minor_wsz)
 {
   CAML_EV_BEGIN(EV_DOMAIN_RESIZE_HEAP_RESERVATION);
+  OCAML_USDT_DOMAIN_RESIZE_HEAP_RESERVATION_BEGIN(Caml_state->id);
   caml_gc_log("stw_resize_minor_heaps_reservation: unreserve");
 
   unreserve_minor_heaps_reservation_from_stw_single();
@@ -720,6 +721,7 @@ void domain_resize_heaps_reservation_from_stw_single(uintnat new_minor_wsz)
      the participating domains will synchronize with this write by
      exiting the barrier, before they read those variables in
      [allocate_minor_heap_arena] below. */
+  OCAML_USDT_DOMAIN_RESIZE_HEAP_RESERVATION_END(Caml_state->id);
   CAML_EV_END(EV_DOMAIN_RESIZE_HEAP_RESERVATION);
 }
 
@@ -1682,6 +1684,7 @@ static void stw_api_barrier(caml_domain_state* domain)
 {
   OCAML_USDT_STW_BARRIER_ENTER(domain->id, 0); /* barrier_id: 0=API_BARRIER */
   CAML_EV_BEGIN(EV_STW_API_BARRIER);
+  OCAML_USDT_STW_API_BARRIER_BEGIN(domain->id);
   OCAML_USDT_STW_BEGIN(domain->id, 0); /* reason: 0=API_BARRIER */
   if (caml_plat_barrier_arrive(&stw_request.domains_still_running)
       == stw_request.num_domains) {
@@ -1690,6 +1693,7 @@ static void stw_api_barrier(caml_domain_state* domain)
     stw_wait_for_running(domain);
   }
   OCAML_USDT_STW_END(domain->id, 0);
+  OCAML_USDT_STW_API_BARRIER_END(domain->id);
   CAML_EV_END(EV_STW_API_BARRIER);
 }
 
@@ -1697,6 +1701,7 @@ static void stw_handler(caml_domain_state* domain)
 {
   OCAML_USDT_STW_HANDLER_ENTER(domain->id);
   CAML_EV_BEGIN(EV_STW_HANDLER);
+  OCAML_USDT_STW_HANDLER_BEGIN(domain->id);
   OCAML_USDT_STW_BEGIN(domain->id, 1); /* reason: 1=HANDLER */
   if (!caml_plat_barrier_is_released(&stw_request.domains_still_running)) {
     stw_api_barrier(domain);
@@ -1717,6 +1722,7 @@ static void stw_handler(caml_domain_state* domain)
   decrement_stw_domains_still_processing();
 
   OCAML_USDT_STW_END(domain->id, 0);
+  OCAML_USDT_STW_HANDLER_END(domain->id);
   CAML_EV_END(EV_STW_HANDLER);
 
   /* poll the GC to check for deferred work
@@ -1867,6 +1873,7 @@ int caml_try_run_on_all_domains_with_spin_work(
   atomic_store_release(&stw_leader, (uintnat)domain_self);
 
   CAML_EV_BEGIN(EV_STW_LEADER);
+  OCAML_USDT_STW_LEADER_BEGIN(domain_state->id);
   OCAML_USDT_STW_BEGIN(domain_state->id, 2); /* reason: 2=LEADER */
   caml_gc_log("causing STW");
 
@@ -1952,6 +1959,7 @@ int caml_try_run_on_all_domains_with_spin_work(
   decrement_stw_domains_still_processing();
 
   OCAML_USDT_STW_END(domain_state->id, 0);
+  OCAML_USDT_STW_LEADER_END(domain_state->id);
   CAML_EV_END(EV_STW_LEADER);
 
   return 1;
@@ -2166,7 +2174,9 @@ void caml_handle_gc_interrupt(void)
   if (caml_incoming_interrupts_queued()) {
     /* interrupt */
     CAML_EV_BEGIN(EV_INTERRUPT_REMOTE);
+    OCAML_USDT_INTERRUPT_REMOTE_BEGIN(Caml_state->id);
     caml_handle_incoming_interrupts();
+    OCAML_USDT_INTERRUPT_REMOTE_END(Caml_state->id);
     CAML_EV_END(EV_INTERRUPT_REMOTE);
   }
 

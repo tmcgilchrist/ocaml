@@ -175,6 +175,365 @@
 #endif
 
 /* ========================================================================
+ * GC Sub-Phase Probes (ev_runtime_phase)
+ * ========================================================================
+ * Helper macros to reduce boilerplate for begin/end phase probes that
+ * take a single domain_id argument.
+ *
+ * UPPER: uppercase token for macOS/FreeBSD generated macro
+ * lower: double-underscore-separated token for Linux SDT probe name
+ */
+#if defined(__APPLE__) || defined(__FreeBSD__)
+#define OCAML_USDT_PHASE1_BEGIN(UPPER, lower, domain_id) \
+    OCAML_##UPPER##_BEGIN(domain_id)
+#define OCAML_USDT_PHASE1_END(UPPER, lower, domain_id) \
+    OCAML_##UPPER##_END(domain_id)
+#else
+#define OCAML_USDT_PHASE1_BEGIN(UPPER, lower, domain_id) \
+    DTRACE_PROBE1(OCAML_PROVIDER, lower##__begin, domain_id)
+#define OCAML_USDT_PHASE1_END(UPPER, lower, domain_id) \
+    DTRACE_PROBE1(OCAML_PROVIDER, lower##__end, domain_id)
+#endif
+
+/* --- Minor GC sub-phases --- */
+
+#define OCAML_USDT_GC_MINOR_LOCAL_ROOTS_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(GC_MINOR_LOCAL_ROOTS, \
+        gc__minor__local__roots, did)
+#define OCAML_USDT_GC_MINOR_LOCAL_ROOTS_END(did) \
+    OCAML_USDT_PHASE1_END(GC_MINOR_LOCAL_ROOTS, \
+        gc__minor__local__roots, did)
+
+#define OCAML_USDT_GC_MINOR_LOCAL_ROOTS_PROMOTE_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(GC_MINOR_LOCAL_ROOTS_PROMOTE, \
+        gc__minor__local__roots__promote, did)
+#define OCAML_USDT_GC_MINOR_LOCAL_ROOTS_PROMOTE_END(did) \
+    OCAML_USDT_PHASE1_END(GC_MINOR_LOCAL_ROOTS_PROMOTE, \
+        gc__minor__local__roots__promote, did)
+
+#define OCAML_USDT_GC_MINOR_MEMPROF_ROOTS_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(GC_MINOR_MEMPROF_ROOTS, \
+        gc__minor__memprof__roots, did)
+#define OCAML_USDT_GC_MINOR_MEMPROF_ROOTS_END(did) \
+    OCAML_USDT_PHASE1_END(GC_MINOR_MEMPROF_ROOTS, \
+        gc__minor__memprof__roots, did)
+
+#define OCAML_USDT_GC_MINOR_MEMPROF_CLEAN_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(GC_MINOR_MEMPROF_CLEAN, \
+        gc__minor__memprof__clean, did)
+#define OCAML_USDT_GC_MINOR_MEMPROF_CLEAN_END(did) \
+    OCAML_USDT_PHASE1_END(GC_MINOR_MEMPROF_CLEAN, \
+        gc__minor__memprof__clean, did)
+
+#define OCAML_USDT_GC_MINOR_EPHE_CLEAN_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(GC_MINOR_EPHE_CLEAN, \
+        gc__minor__ephe__clean, did)
+#define OCAML_USDT_GC_MINOR_EPHE_CLEAN_END(did) \
+    OCAML_USDT_PHASE1_END(GC_MINOR_EPHE_CLEAN, \
+        gc__minor__ephe__clean, did)
+
+#define OCAML_USDT_GC_MINOR_FINALIZED_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(GC_MINOR_FINALIZED, \
+        gc__minor__finalized, did)
+#define OCAML_USDT_GC_MINOR_FINALIZED_END(did) \
+    OCAML_USDT_PHASE1_END(GC_MINOR_FINALIZED, \
+        gc__minor__finalized, did)
+
+#define OCAML_USDT_GC_MINOR_FINALIZERS_OLDIFY_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(GC_MINOR_FINALIZERS_OLDIFY, \
+        gc__minor__finalizers__oldify, did)
+#define OCAML_USDT_GC_MINOR_FINALIZERS_OLDIFY_END(did) \
+    OCAML_USDT_PHASE1_END(GC_MINOR_FINALIZERS_OLDIFY, \
+        gc__minor__finalizers__oldify, did)
+
+#define OCAML_USDT_GC_MINOR_FINALIZERS_ADMIN_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(GC_MINOR_FINALIZERS_ADMIN, \
+        gc__minor__finalizers__admin, did)
+#define OCAML_USDT_GC_MINOR_FINALIZERS_ADMIN_END(did) \
+    OCAML_USDT_PHASE1_END(GC_MINOR_FINALIZERS_ADMIN, \
+        gc__minor__finalizers__admin, did)
+
+#define OCAML_USDT_GC_MINOR_CLEAR_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(GC_MINOR_CLEAR, \
+        gc__minor__clear, did)
+#define OCAML_USDT_GC_MINOR_CLEAR_END(did) \
+    OCAML_USDT_PHASE1_END(GC_MINOR_CLEAR, \
+        gc__minor__clear, did)
+
+#define OCAML_USDT_GC_MINOR_GLOBAL_ROOTS_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(GC_MINOR_GLOBAL_ROOTS, \
+        gc__minor__global__roots, did)
+#define OCAML_USDT_GC_MINOR_GLOBAL_ROOTS_END(did) \
+    OCAML_USDT_PHASE1_END(GC_MINOR_GLOBAL_ROOTS, \
+        gc__minor__global__roots, did)
+
+#define OCAML_USDT_GC_MINOR_REMEMBERED_SET_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(GC_MINOR_REMEMBERED_SET, \
+        gc__minor__remembered__set, did)
+#define OCAML_USDT_GC_MINOR_REMEMBERED_SET_END(did) \
+    OCAML_USDT_PHASE1_END(GC_MINOR_REMEMBERED_SET, \
+        gc__minor__remembered__set, did)
+
+#define OCAML_USDT_GC_MINOR_REMEMBERED_SET_PROMOTE_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(GC_MINOR_REMEMBERED_SET_PROMOTE, \
+        gc__minor__remembered__set__promote, did)
+#define OCAML_USDT_GC_MINOR_REMEMBERED_SET_PROMOTE_END(did) \
+    OCAML_USDT_PHASE1_END(GC_MINOR_REMEMBERED_SET_PROMOTE, \
+        gc__minor__remembered__set__promote, did)
+
+#define OCAML_USDT_GC_MINOR_LEAVE_BARRIER_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(GC_MINOR_LEAVE_BARRIER, \
+        gc__minor__leave__barrier, did)
+#define OCAML_USDT_GC_MINOR_LEAVE_BARRIER_END(did) \
+    OCAML_USDT_PHASE1_END(GC_MINOR_LEAVE_BARRIER, \
+        gc__minor__leave__barrier, did)
+
+#define OCAML_USDT_GC_EMPTY_MINOR_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(GC_EMPTY_MINOR, \
+        gc__empty__minor, did)
+#define OCAML_USDT_GC_EMPTY_MINOR_END(did) \
+    OCAML_USDT_PHASE1_END(GC_EMPTY_MINOR, \
+        gc__empty__minor, did)
+
+/* --- Major GC sub-phases --- */
+
+#define OCAML_USDT_GC_MAJOR_SWEEP_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(GC_MAJOR_SWEEP, \
+        gc__major__sweep, did)
+#define OCAML_USDT_GC_MAJOR_SWEEP_END(did) \
+    OCAML_USDT_PHASE1_END(GC_MAJOR_SWEEP, \
+        gc__major__sweep, did)
+
+#define OCAML_USDT_GC_MAJOR_MARK_ROOTS_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(GC_MAJOR_MARK_ROOTS, \
+        gc__major__mark__roots, did)
+#define OCAML_USDT_GC_MAJOR_MARK_ROOTS_END(did) \
+    OCAML_USDT_PHASE1_END(GC_MAJOR_MARK_ROOTS, \
+        gc__major__mark__roots, did)
+
+#define OCAML_USDT_GC_MAJOR_MARK_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(GC_MAJOR_MARK, \
+        gc__major__mark, did)
+#define OCAML_USDT_GC_MAJOR_MARK_END(did) \
+    OCAML_USDT_PHASE1_END(GC_MAJOR_MARK, \
+        gc__major__mark, did)
+
+#define OCAML_USDT_GC_MAJOR_MARK_OPPORTUNISTIC_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(GC_MAJOR_MARK_OPPORTUNISTIC, \
+        gc__major__mark__opportunistic, did)
+#define OCAML_USDT_GC_MAJOR_MARK_OPPORTUNISTIC_END(did) \
+    OCAML_USDT_PHASE1_END(GC_MAJOR_MARK_OPPORTUNISTIC, \
+        gc__major__mark__opportunistic, did)
+
+#define OCAML_USDT_GC_MAJOR_MEMPROF_ROOTS_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(GC_MAJOR_MEMPROF_ROOTS, \
+        gc__major__memprof__roots, did)
+#define OCAML_USDT_GC_MAJOR_MEMPROF_ROOTS_END(did) \
+    OCAML_USDT_PHASE1_END(GC_MAJOR_MEMPROF_ROOTS, \
+        gc__major__memprof__roots, did)
+
+#define OCAML_USDT_GC_MAJOR_MEMPROF_CLEAN_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(GC_MAJOR_MEMPROF_CLEAN, \
+        gc__major__memprof__clean, did)
+#define OCAML_USDT_GC_MAJOR_MEMPROF_CLEAN_END(did) \
+    OCAML_USDT_PHASE1_END(GC_MAJOR_MEMPROF_CLEAN, \
+        gc__major__memprof__clean, did)
+
+#define OCAML_USDT_GC_MAJOR_EPHE_MARK_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(GC_MAJOR_EPHE_MARK, \
+        gc__major__ephe__mark, did)
+#define OCAML_USDT_GC_MAJOR_EPHE_MARK_END(did) \
+    OCAML_USDT_PHASE1_END(GC_MAJOR_EPHE_MARK, \
+        gc__major__ephe__mark, did)
+
+#define OCAML_USDT_GC_MAJOR_EPHE_SWEEP_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(GC_MAJOR_EPHE_SWEEP, \
+        gc__major__ephe__sweep, did)
+#define OCAML_USDT_GC_MAJOR_EPHE_SWEEP_END(did) \
+    OCAML_USDT_PHASE1_END(GC_MAJOR_EPHE_SWEEP, \
+        gc__major__ephe__sweep, did)
+
+#define OCAML_USDT_GC_MAJOR_FINISH_MARKING_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(GC_MAJOR_FINISH_MARKING, \
+        gc__major__finish__marking, did)
+#define OCAML_USDT_GC_MAJOR_FINISH_MARKING_END(did) \
+    OCAML_USDT_PHASE1_END(GC_MAJOR_FINISH_MARKING, \
+        gc__major__finish__marking, did)
+
+#define OCAML_USDT_GC_MAJOR_FINISH_SWEEPING_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(GC_MAJOR_FINISH_SWEEPING, \
+        gc__major__finish__sweeping, did)
+#define OCAML_USDT_GC_MAJOR_FINISH_SWEEPING_END(did) \
+    OCAML_USDT_PHASE1_END(GC_MAJOR_FINISH_SWEEPING, \
+        gc__major__finish__sweeping, did)
+
+#define OCAML_USDT_GC_MAJOR_FINISH_CYCLE_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(GC_MAJOR_FINISH_CYCLE, \
+        gc__major__finish__cycle, did)
+#define OCAML_USDT_GC_MAJOR_FINISH_CYCLE_END(did) \
+    OCAML_USDT_PHASE1_END(GC_MAJOR_FINISH_CYCLE, \
+        gc__major__finish__cycle, did)
+
+#define OCAML_USDT_GC_MAJOR_GC_CYCLE_DOMAINS_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(GC_MAJOR_GC_CYCLE_DOMAINS, \
+        gc__major__gc__cycle__domains, did)
+#define OCAML_USDT_GC_MAJOR_GC_CYCLE_DOMAINS_END(did) \
+    OCAML_USDT_PHASE1_END(GC_MAJOR_GC_CYCLE_DOMAINS, \
+        gc__major__gc__cycle__domains, did)
+
+#define OCAML_USDT_GC_MAJOR_GC_PHASE_CHANGE_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(GC_MAJOR_GC_PHASE_CHANGE, \
+        gc__major__gc__phase__change, did)
+#define OCAML_USDT_GC_MAJOR_GC_PHASE_CHANGE_END(did) \
+    OCAML_USDT_PHASE1_END(GC_MAJOR_GC_PHASE_CHANGE, \
+        gc__major__gc__phase__change, did)
+
+#define OCAML_USDT_GC_MAJOR_GC_STW_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(GC_MAJOR_GC_STW, \
+        gc__major__gc__stw, did)
+#define OCAML_USDT_GC_MAJOR_GC_STW_END(did) \
+    OCAML_USDT_PHASE1_END(GC_MAJOR_GC_STW, \
+        gc__major__gc__stw, did)
+
+/* --- Compaction sub-phases --- */
+
+#define OCAML_USDT_GC_COMPACT_EVACUATE_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(GC_COMPACT_EVACUATE, \
+        gc__compact__evacuate, did)
+#define OCAML_USDT_GC_COMPACT_EVACUATE_END(did) \
+    OCAML_USDT_PHASE1_END(GC_COMPACT_EVACUATE, \
+        gc__compact__evacuate, did)
+
+#define OCAML_USDT_GC_COMPACT_FORWARD_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(GC_COMPACT_FORWARD, \
+        gc__compact__forward, did)
+#define OCAML_USDT_GC_COMPACT_FORWARD_END(did) \
+    OCAML_USDT_PHASE1_END(GC_COMPACT_FORWARD, \
+        gc__compact__forward, did)
+
+#define OCAML_USDT_GC_COMPACT_RELEASE_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(GC_COMPACT_RELEASE, \
+        gc__compact__release, did)
+#define OCAML_USDT_GC_COMPACT_RELEASE_END(did) \
+    OCAML_USDT_PHASE1_END(GC_COMPACT_RELEASE, \
+        gc__compact__release, did)
+
+/* --- Explicit GC calls --- */
+
+#define OCAML_USDT_EXPLICIT_GC_SET_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(EXPLICIT_GC_SET, \
+        explicit__gc__set, did)
+#define OCAML_USDT_EXPLICIT_GC_SET_END(did) \
+    OCAML_USDT_PHASE1_END(EXPLICIT_GC_SET, \
+        explicit__gc__set, did)
+
+#define OCAML_USDT_EXPLICIT_GC_STAT_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(EXPLICIT_GC_STAT, \
+        explicit__gc__stat, did)
+#define OCAML_USDT_EXPLICIT_GC_STAT_END(did) \
+    OCAML_USDT_PHASE1_END(EXPLICIT_GC_STAT, \
+        explicit__gc__stat, did)
+
+#define OCAML_USDT_EXPLICIT_GC_MINOR_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(EXPLICIT_GC_MINOR, \
+        explicit__gc__minor, did)
+#define OCAML_USDT_EXPLICIT_GC_MINOR_END(did) \
+    OCAML_USDT_PHASE1_END(EXPLICIT_GC_MINOR, \
+        explicit__gc__minor, did)
+
+#define OCAML_USDT_EXPLICIT_GC_MAJOR_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(EXPLICIT_GC_MAJOR, \
+        explicit__gc__major, did)
+#define OCAML_USDT_EXPLICIT_GC_MAJOR_END(did) \
+    OCAML_USDT_PHASE1_END(EXPLICIT_GC_MAJOR, \
+        explicit__gc__major, did)
+
+#define OCAML_USDT_EXPLICIT_GC_FULL_MAJOR_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(EXPLICIT_GC_FULL_MAJOR, \
+        explicit__gc__full__major, did)
+#define OCAML_USDT_EXPLICIT_GC_FULL_MAJOR_END(did) \
+    OCAML_USDT_PHASE1_END(EXPLICIT_GC_FULL_MAJOR, \
+        explicit__gc__full__major, did)
+
+#define OCAML_USDT_EXPLICIT_GC_COMPACT_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(EXPLICIT_GC_COMPACT, \
+        explicit__gc__compact, did)
+#define OCAML_USDT_EXPLICIT_GC_COMPACT_END(did) \
+    OCAML_USDT_PHASE1_END(EXPLICIT_GC_COMPACT, \
+        explicit__gc__compact, did)
+
+#define OCAML_USDT_EXPLICIT_GC_MAJOR_SLICE_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(EXPLICIT_GC_MAJOR_SLICE, \
+        explicit__gc__major__slice, did)
+#define OCAML_USDT_EXPLICIT_GC_MAJOR_SLICE_END(did) \
+    OCAML_USDT_PHASE1_END(EXPLICIT_GC_MAJOR_SLICE, \
+        explicit__gc__major__slice, did)
+
+/* --- Finaliser phases --- */
+
+#define OCAML_USDT_FINALISE_UPDATE_FIRST_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(FINALISE_UPDATE_FIRST, \
+        finalise__update__first, did)
+#define OCAML_USDT_FINALISE_UPDATE_FIRST_END(did) \
+    OCAML_USDT_PHASE1_END(FINALISE_UPDATE_FIRST, \
+        finalise__update__first, did)
+
+#define OCAML_USDT_FINALISE_UPDATE_LAST_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(FINALISE_UPDATE_LAST, \
+        finalise__update__last, did)
+#define OCAML_USDT_FINALISE_UPDATE_LAST_END(did) \
+    OCAML_USDT_PHASE1_END(FINALISE_UPDATE_LAST, \
+        finalise__update__last, did)
+
+/* --- Domain runtime phases --- */
+
+#define OCAML_USDT_DOMAIN_CONDITION_WAIT_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(DOMAIN_CONDITION_WAIT, \
+        domain__condition__wait, did)
+#define OCAML_USDT_DOMAIN_CONDITION_WAIT_END(did) \
+    OCAML_USDT_PHASE1_END(DOMAIN_CONDITION_WAIT, \
+        domain__condition__wait, did)
+
+#define OCAML_USDT_DOMAIN_RESIZE_HEAP_RESERVATION_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(DOMAIN_RESIZE_HEAP_RESERVATION, \
+        domain__resize__heap__reservation, did)
+#define OCAML_USDT_DOMAIN_RESIZE_HEAP_RESERVATION_END(did) \
+    OCAML_USDT_PHASE1_END(DOMAIN_RESIZE_HEAP_RESERVATION, \
+        domain__resize__heap__reservation, did)
+
+/* --- STW phases --- */
+
+#define OCAML_USDT_STW_API_BARRIER_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(STW_API_BARRIER, \
+        stw__api__barrier, did)
+#define OCAML_USDT_STW_API_BARRIER_END(did) \
+    OCAML_USDT_PHASE1_END(STW_API_BARRIER, \
+        stw__api__barrier, did)
+
+#define OCAML_USDT_STW_HANDLER_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(STW_HANDLER, \
+        stw__handler, did)
+#define OCAML_USDT_STW_HANDLER_END(did) \
+    OCAML_USDT_PHASE1_END(STW_HANDLER, \
+        stw__handler, did)
+
+#define OCAML_USDT_STW_LEADER_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(STW_LEADER, \
+        stw__leader, did)
+#define OCAML_USDT_STW_LEADER_END(did) \
+    OCAML_USDT_PHASE1_END(STW_LEADER, \
+        stw__leader, did)
+
+/* --- Interrupt --- */
+
+#define OCAML_USDT_INTERRUPT_REMOTE_BEGIN(did) \
+    OCAML_USDT_PHASE1_BEGIN(INTERRUPT_REMOTE, \
+        interrupt__remote, did)
+#define OCAML_USDT_INTERRUPT_REMOTE_END(did) \
+    OCAML_USDT_PHASE1_END(INTERRUPT_REMOTE, \
+        interrupt__remote, did)
+
+/* ========================================================================
  * Allocation Probes
  * ======================================================================== */
 
@@ -643,6 +1002,101 @@
 #define OCAML_USDT_GC_MAJOR_SLICE_END(domain_id, marked_words) do {} while(0)
 #define OCAML_USDT_GC_COMPACT_BEGIN(domain_id) do {} while(0)
 #define OCAML_USDT_GC_COMPACT_END(domain_id) do {} while(0)
+
+/* Sub-phase no-ops */
+#define OCAML_USDT_GC_MINOR_LOCAL_ROOTS_BEGIN(did) do {} while(0)
+#define OCAML_USDT_GC_MINOR_LOCAL_ROOTS_END(did) do {} while(0)
+#define OCAML_USDT_GC_MINOR_LOCAL_ROOTS_PROMOTE_BEGIN(did) do {} while(0)
+#define OCAML_USDT_GC_MINOR_LOCAL_ROOTS_PROMOTE_END(did) do {} while(0)
+#define OCAML_USDT_GC_MINOR_MEMPROF_ROOTS_BEGIN(did) do {} while(0)
+#define OCAML_USDT_GC_MINOR_MEMPROF_ROOTS_END(did) do {} while(0)
+#define OCAML_USDT_GC_MINOR_MEMPROF_CLEAN_BEGIN(did) do {} while(0)
+#define OCAML_USDT_GC_MINOR_MEMPROF_CLEAN_END(did) do {} while(0)
+#define OCAML_USDT_GC_MINOR_EPHE_CLEAN_BEGIN(did) do {} while(0)
+#define OCAML_USDT_GC_MINOR_EPHE_CLEAN_END(did) do {} while(0)
+#define OCAML_USDT_GC_MINOR_FINALIZED_BEGIN(did) do {} while(0)
+#define OCAML_USDT_GC_MINOR_FINALIZED_END(did) do {} while(0)
+#define OCAML_USDT_GC_MINOR_FINALIZERS_OLDIFY_BEGIN(did) do {} while(0)
+#define OCAML_USDT_GC_MINOR_FINALIZERS_OLDIFY_END(did) do {} while(0)
+#define OCAML_USDT_GC_MINOR_FINALIZERS_ADMIN_BEGIN(did) do {} while(0)
+#define OCAML_USDT_GC_MINOR_FINALIZERS_ADMIN_END(did) do {} while(0)
+#define OCAML_USDT_GC_MINOR_CLEAR_BEGIN(did) do {} while(0)
+#define OCAML_USDT_GC_MINOR_CLEAR_END(did) do {} while(0)
+#define OCAML_USDT_GC_MINOR_GLOBAL_ROOTS_BEGIN(did) do {} while(0)
+#define OCAML_USDT_GC_MINOR_GLOBAL_ROOTS_END(did) do {} while(0)
+#define OCAML_USDT_GC_MINOR_REMEMBERED_SET_BEGIN(did) do {} while(0)
+#define OCAML_USDT_GC_MINOR_REMEMBERED_SET_END(did) do {} while(0)
+#define OCAML_USDT_GC_MINOR_REMEMBERED_SET_PROMOTE_BEGIN(did) do {} while(0)
+#define OCAML_USDT_GC_MINOR_REMEMBERED_SET_PROMOTE_END(did) do {} while(0)
+#define OCAML_USDT_GC_MINOR_LEAVE_BARRIER_BEGIN(did) do {} while(0)
+#define OCAML_USDT_GC_MINOR_LEAVE_BARRIER_END(did) do {} while(0)
+#define OCAML_USDT_GC_EMPTY_MINOR_BEGIN(did) do {} while(0)
+#define OCAML_USDT_GC_EMPTY_MINOR_END(did) do {} while(0)
+#define OCAML_USDT_GC_MAJOR_SWEEP_BEGIN(did) do {} while(0)
+#define OCAML_USDT_GC_MAJOR_SWEEP_END(did) do {} while(0)
+#define OCAML_USDT_GC_MAJOR_MARK_ROOTS_BEGIN(did) do {} while(0)
+#define OCAML_USDT_GC_MAJOR_MARK_ROOTS_END(did) do {} while(0)
+#define OCAML_USDT_GC_MAJOR_MARK_BEGIN(did) do {} while(0)
+#define OCAML_USDT_GC_MAJOR_MARK_END(did) do {} while(0)
+#define OCAML_USDT_GC_MAJOR_MARK_OPPORTUNISTIC_BEGIN(did) do {} while(0)
+#define OCAML_USDT_GC_MAJOR_MARK_OPPORTUNISTIC_END(did) do {} while(0)
+#define OCAML_USDT_GC_MAJOR_MEMPROF_ROOTS_BEGIN(did) do {} while(0)
+#define OCAML_USDT_GC_MAJOR_MEMPROF_ROOTS_END(did) do {} while(0)
+#define OCAML_USDT_GC_MAJOR_MEMPROF_CLEAN_BEGIN(did) do {} while(0)
+#define OCAML_USDT_GC_MAJOR_MEMPROF_CLEAN_END(did) do {} while(0)
+#define OCAML_USDT_GC_MAJOR_EPHE_MARK_BEGIN(did) do {} while(0)
+#define OCAML_USDT_GC_MAJOR_EPHE_MARK_END(did) do {} while(0)
+#define OCAML_USDT_GC_MAJOR_EPHE_SWEEP_BEGIN(did) do {} while(0)
+#define OCAML_USDT_GC_MAJOR_EPHE_SWEEP_END(did) do {} while(0)
+#define OCAML_USDT_GC_MAJOR_FINISH_MARKING_BEGIN(did) do {} while(0)
+#define OCAML_USDT_GC_MAJOR_FINISH_MARKING_END(did) do {} while(0)
+#define OCAML_USDT_GC_MAJOR_FINISH_SWEEPING_BEGIN(did) do {} while(0)
+#define OCAML_USDT_GC_MAJOR_FINISH_SWEEPING_END(did) do {} while(0)
+#define OCAML_USDT_GC_MAJOR_FINISH_CYCLE_BEGIN(did) do {} while(0)
+#define OCAML_USDT_GC_MAJOR_FINISH_CYCLE_END(did) do {} while(0)
+#define OCAML_USDT_GC_MAJOR_GC_CYCLE_DOMAINS_BEGIN(did) do {} while(0)
+#define OCAML_USDT_GC_MAJOR_GC_CYCLE_DOMAINS_END(did) do {} while(0)
+#define OCAML_USDT_GC_MAJOR_GC_PHASE_CHANGE_BEGIN(did) do {} while(0)
+#define OCAML_USDT_GC_MAJOR_GC_PHASE_CHANGE_END(did) do {} while(0)
+#define OCAML_USDT_GC_MAJOR_GC_STW_BEGIN(did) do {} while(0)
+#define OCAML_USDT_GC_MAJOR_GC_STW_END(did) do {} while(0)
+#define OCAML_USDT_GC_COMPACT_EVACUATE_BEGIN(did) do {} while(0)
+#define OCAML_USDT_GC_COMPACT_EVACUATE_END(did) do {} while(0)
+#define OCAML_USDT_GC_COMPACT_FORWARD_BEGIN(did) do {} while(0)
+#define OCAML_USDT_GC_COMPACT_FORWARD_END(did) do {} while(0)
+#define OCAML_USDT_GC_COMPACT_RELEASE_BEGIN(did) do {} while(0)
+#define OCAML_USDT_GC_COMPACT_RELEASE_END(did) do {} while(0)
+#define OCAML_USDT_EXPLICIT_GC_SET_BEGIN(did) do {} while(0)
+#define OCAML_USDT_EXPLICIT_GC_SET_END(did) do {} while(0)
+#define OCAML_USDT_EXPLICIT_GC_STAT_BEGIN(did) do {} while(0)
+#define OCAML_USDT_EXPLICIT_GC_STAT_END(did) do {} while(0)
+#define OCAML_USDT_EXPLICIT_GC_MINOR_BEGIN(did) do {} while(0)
+#define OCAML_USDT_EXPLICIT_GC_MINOR_END(did) do {} while(0)
+#define OCAML_USDT_EXPLICIT_GC_MAJOR_BEGIN(did) do {} while(0)
+#define OCAML_USDT_EXPLICIT_GC_MAJOR_END(did) do {} while(0)
+#define OCAML_USDT_EXPLICIT_GC_FULL_MAJOR_BEGIN(did) do {} while(0)
+#define OCAML_USDT_EXPLICIT_GC_FULL_MAJOR_END(did) do {} while(0)
+#define OCAML_USDT_EXPLICIT_GC_COMPACT_BEGIN(did) do {} while(0)
+#define OCAML_USDT_EXPLICIT_GC_COMPACT_END(did) do {} while(0)
+#define OCAML_USDT_EXPLICIT_GC_MAJOR_SLICE_BEGIN(did) do {} while(0)
+#define OCAML_USDT_EXPLICIT_GC_MAJOR_SLICE_END(did) do {} while(0)
+#define OCAML_USDT_FINALISE_UPDATE_FIRST_BEGIN(did) do {} while(0)
+#define OCAML_USDT_FINALISE_UPDATE_FIRST_END(did) do {} while(0)
+#define OCAML_USDT_FINALISE_UPDATE_LAST_BEGIN(did) do {} while(0)
+#define OCAML_USDT_FINALISE_UPDATE_LAST_END(did) do {} while(0)
+#define OCAML_USDT_DOMAIN_CONDITION_WAIT_BEGIN(did) do {} while(0)
+#define OCAML_USDT_DOMAIN_CONDITION_WAIT_END(did) do {} while(0)
+#define OCAML_USDT_DOMAIN_RESIZE_HEAP_RESERVATION_BEGIN(did) do {} while(0)
+#define OCAML_USDT_DOMAIN_RESIZE_HEAP_RESERVATION_END(did) do {} while(0)
+#define OCAML_USDT_STW_API_BARRIER_BEGIN(did) do {} while(0)
+#define OCAML_USDT_STW_API_BARRIER_END(did) do {} while(0)
+#define OCAML_USDT_STW_HANDLER_BEGIN(did) do {} while(0)
+#define OCAML_USDT_STW_HANDLER_END(did) do {} while(0)
+#define OCAML_USDT_STW_LEADER_BEGIN(did) do {} while(0)
+#define OCAML_USDT_STW_LEADER_END(did) do {} while(0)
+#define OCAML_USDT_INTERRUPT_REMOTE_BEGIN(did) do {} while(0)
+#define OCAML_USDT_INTERRUPT_REMOTE_END(did) do {} while(0)
+
 #define OCAML_USDT_ALLOC_MINOR(domain_id, size_words) do {} while(0)
 #define OCAML_USDT_ALLOC_MAJOR(domain_id, size_words) do {} while(0)
 #define OCAML_USDT_DOMAIN_SPAWN(domain_id) do {} while(0)
