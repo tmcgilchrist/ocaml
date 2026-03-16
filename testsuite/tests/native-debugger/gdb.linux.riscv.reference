@@ -2,6 +2,8 @@ Breakpoint 1 at 0x00000000000000
 Breakpoint 2 at 0x00000000000000
 Breakpoint 3 at 0x00000000000000: file meander_c.c, line XXX.
 Breakpoint 4 at 0x00000000000000: file meander.ml, line XXX.
+Breakpoint 5 at 0x00000000000000: file meander.ml, line XXX.
+Breakpoint 6 at 0x00000000000000: file meander.ml, line XXX.
 Breakpoint 1, <signal handler called>
 frame X: caml_start_program
 frame X: caml_startup_common
@@ -30,8 +32,8 @@ frame X: caml_startup_common
 frame X: caml_startup
 frame X: caml_main
 frame X: main
-Breakpoint 4, camlMeander.c_to_ocaml () at meander.ml:5
-5	let c_to_ocaml () = raise E1
+Breakpoint 4, camlMeander.c_to_ocaml () at meander.ml:9
+9	let c_to_ocaml () = raise E1
 frame X: camlMeander.c_to_ocaml
 frame X: caml_start_program
 frame X: caml_callback_exn
@@ -39,6 +41,31 @@ frame X: caml_callback
 frame X: ocaml_to_c
 frame X: caml_c_call
 frame X: camlMeander.omain
+frame X: camlMeander.entry
+frame X: caml_program
+frame X: caml_start_program
+frame X: caml_startup_common
+frame X: caml_startup_common
+frame X: caml_startup
+frame X: caml_main
+frame X: main
+Breakpoint 5, camlMeander.on_fiber () at meander.ml:21
+21	  Sys.opaque_identity 42
+frame X: camlMeander.on_fiber
+frame X: caml_runstack
+frame X: camlMeander.entry
+frame X: caml_program
+frame X: caml_start_program
+frame X: caml_startup_common
+frame X: caml_startup_common
+frame X: caml_startup
+frame X: caml_main
+frame X: main
+Breakpoint 6, camlMeander.on_perform () at meander.ml:35
+35	  Sys.opaque_identity 99
+frame X: camlMeander.on_perform
+frame X: camlMeander.performer
+frame X: caml_runstack
 frame X: camlMeander.entry
 frame X: caml_program
 frame X: caml_start_program
