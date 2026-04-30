@@ -17562,7 +17562,7 @@ fi
 
 if test x"$enable_frame_pointers" = "xyes"; then :
   case "$host,$cc_basename" in #(
-  x86_64-*-linux*,gcc*|x86_64-*-linux*,clang*) :
+  x86_64-*-linux*,gcc*|x86_64-*-linux*,clang*|aarch64-*-linux*,gcc*|aarch64-*-linux*,clang*|aarch64-*-darwin*,gcc*|aarch64-*-darwin*,clang*) :
     common_cflags="$common_cflags -g  -fno-omit-frame-pointer"
       frame_pointers=true
       $as_echo "#define WITH_FRAME_POINTERS 1" >>confdefs.h
