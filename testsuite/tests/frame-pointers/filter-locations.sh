@@ -12,9 +12,11 @@ program="${1}"
 #   - keep only frames originating from the program binary (drop libc, dyld,
 #     and other shared libraries);
 #   - strip the OCaml-generated `_NN` numeric suffix from `caml*` symbols;
-#   - drop the C startup wrappers `caml_main` and `caml_startup_common`,
-#     which on Linux are typically not symbolicated by `backtrace_symbols_fd`
-#     and so do not appear in the reference output.
+#   - drop the C startup wrappers `caml_main`, `caml_startup_common`, and
+#     `_start`, which appear on some toolchains (notably modern Linux with
+#     -rdynamic) but not all, so excluding them keeps a single reference.
+
+drop_wrappers='-e /^caml_main$/d -e /^caml_startup_common$/d -e /^_start$/d'
 
 case "$(uname -s)" in
   Darwin)
@@ -26,10 +28,9 @@ case "$(uname -s)" in
         sym = $4
         sub(/^_/, "", sym)        # strip macOS leading underscore
         sub(/_[0-9]+$/, "", sym)  # strip OCaml numeric suffix
-        if (sym == "caml_main" || sym == "caml_startup_common") next
         print sym
       }
-    '
+    ' | sed ${drop_wrappers}
     ;;
   *)
     # Linux glibc backtrace_symbols_fd format:
@@ -48,6 +49,6 @@ case "$(uname -s)" in
         /^${program_escaped}/ ! d
         s/${regex_backtrace}/\1/
         s/${regex_trim_fun}/\1/
-      }"
+      }" ${drop_wrappers}
     ;;
 esac
