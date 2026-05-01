@@ -88,3 +88,5 @@ let function_sections = %%FUNCTION_SECTIONS%%
 let instrumented_runtime = %%INSTRUMENTED_RUNTIME%%
 
 let naked_pointers = %%NAKED_POINTERS%%
+
+let frame_pointers = %%WITH_FRAME_POINTERS%%
