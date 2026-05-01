@@ -81,10 +81,14 @@ let emit_wreg = function
     {loc = Reg r} -> emit_string int_reg_name_w.(r)
   | _ -> fatal_error "Emit.emit_wreg"
 
+let fp = Config.with_frame_pointers
+
 let initial_stack_offset f =
-  8 * f.fun_num_stack_slots.(0) +
-  8 * f.fun_num_stack_slots.(1) +
-  (if f.fun_contains_calls then 8 else 0)
+  8 * f.fun_num_stack_slots.(0) + (* Local int variables *)
+  8 * f.fun_num_stack_slots.(1) + (* Local float variables *)
+    (if f.fun_contains_calls then
+       8 + (if fp then 8 else 0) (* Return address plus optional Frame Pointer *)
+     else 0)
 
 let frame_size env =
   let sz =
@@ -273,10 +277,14 @@ let emit_stack_adjustment n =
 
 let output_epilogue env f =
   let n = frame_size env in
-  if env.f.fun_contains_calls then
-    `	ldr	x30, [sp, #{emit_int (n-8)}]\n`;
   if n > 0 then
     emit_stack_adjustment n;
+  if env.f.fun_contains_calls then begin
+    if fp then
+      `	ldp	x29, x30, [sp, #-16]\n`
+    else
+      `	ldr	x30, [sp, #-8]\n`
+  end;
   f();
   (* reset CFA back because function body may continue *)
   if n > 0 then cfi_adjust_cfa_offset n
@@ -305,6 +313,20 @@ and emit_subimm rd rs n =
     `	sub	{emit_reg rd}, {emit_reg rs}, #{emit_int nh}\n`;
     if nl <> 0 then
       `	sub	{emit_reg rd}, {emit_reg rd}, #{emit_int nl}\n`
+  end
+
+(* Emit `add x29, sp, #n`, splitting into two adds if needed.  Used to
+   set up the frame pointer at the top of the stack frame. *)
+
+let emit_add_x29_sp n =
+  assert (n >= 0 && n <= 0xFFF_FFF);
+  if n <= 0xFFF then
+    `	add	x29, sp, #{emit_int n}\n`
+  else begin
+    let nl = n land 0xFFF and nh = n land 0xFFF_000 in
+    `	add	x29, sp, #{emit_int nh}\n`;
+    if nl <> 0 then
+      `	add	x29, x29, #{emit_int nl}\n`
   end
 
 let emit_cmpimm rs n =
@@ -446,7 +468,9 @@ module BR = Branch_relaxation.Make (struct
 
   let prologue_size f =
     (if initial_stack_offset f > 0 then 2 else 0)
-      + (if f.fun_contains_calls then 1 else 0)
+      + (if f.fun_contains_calls
+         then if fp then 1 + addsub_size (initial_stack_offset f - 16) else 1
+         else 0)
 
   let epilogue_size f =
     if f.fun_contains_calls then 3 else 2
@@ -522,7 +546,7 @@ module BR = Branch_relaxation.Make (struct
         + begin match lbl1 with None -> 0 | Some _ -> 1 end
         + begin match lbl2 with None -> 0 | Some _ -> 1 end
     | Lswitch jumptbl -> 3 + Array.length jumptbl
-    | Lentertrap -> 0
+    | Lentertrap -> if fp then 2 (* over-approximation *) else 0
     | Ladjust_trap_depth _ -> 0
     | Lpushtrap _ -> 4
     | Lpoptrap -> 1
@@ -656,11 +680,20 @@ let emit_instr env i =
     | Lprologue ->
       assert (env.f.fun_prologue_required);
       let n = frame_size env in
-      if n > 0 then
-        emit_stack_adjustment (-n);
       if env.f.fun_contains_calls then begin
-        cfi_offset ~reg:30 (* return address *) ~offset:(-8);
-        `	str	x30, [sp, #{emit_int (n-8)}]\n`
+        if fp then begin
+          `	stp	x29, x30, [sp, #-16]\n`;
+          cfi_offset ~reg:29 (* frame pointer *) ~offset:(-16);
+          cfi_offset ~reg:30 (* return address *) ~offset:(-8)
+        end else begin
+          `	str	x30, [sp, #-8]\n`;
+          cfi_offset ~reg:30 (* return address *) ~offset:(-8)
+        end
+      end;
+      if n > 0 then begin
+        emit_stack_adjustment (-n);
+        if env.f.fun_contains_calls && fp then
+          emit_add_x29_sp (n - 16)
       end
     | Lop(Imove | Ispill | Ireload) ->
         let src = i.arg.(0) and dst = i.res.(0) in
@@ -973,7 +1006,10 @@ let emit_instr env i =
         done
 *)
     | Lentertrap ->
-        ()
+        if fp then begin
+          let delta = (frame_size env) - 16 in (* return address + frame pointer *)
+          emit_add_x29_sp delta
+        end
     | Ladjust_trap_depth { delta_traps } ->
         (* each trap occupies 16 bytes on the stack *)
         let delta = 16 * delta_traps in
