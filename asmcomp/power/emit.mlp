@@ -730,8 +730,21 @@ let emit_instr env i =
           `	mr	1, 28\n`
         end
     | Lop(Istackoffset n) ->
-        `	addi	1, 1, {emit_int (-n)}\n`;
-        adjust_stack_offset env n
+        (* The ELFv2 ABI reserves 32 bytes at the bottom of every stack frame,
+           and slot_offset places outgoing arguments at
+           SP + reserved_stack_space + n.  We include the reserved area in the
+           allocation so that outgoing arguments do not overflow into the
+           caller's frame; the same amount is released when deallocating
+           (n < 0). *)
+        if n > 0 then begin
+          let alloc = n + reserved_stack_space in
+          `	addi	1, 1, {emit_int (-alloc)}\n`;
+          adjust_stack_offset env alloc
+        end else if n < 0 then begin
+          let dealloc = (-n) + reserved_stack_space in
+          `	addi	1, 1, {emit_int dealloc}\n`;
+          adjust_stack_offset env (-dealloc)
+        end
     | Lop(Iload { memory_chunk; addressing_mode; is_atomic }) ->
         let loadinstr = load_mnemonic memory_chunk in
         if is_atomic then
