@@ -102,6 +102,12 @@ Working version
   certain GC cycles longer due to ephemeron marking starting later.
   (Gabriel Scherer, review by B. Szilvasy and Damien Doligez)
 
+- #14482: Add frame pointer support to POWER linux.
+  Maintains an ELFv2 frame pointer in r31. The allocation pointer is
+  moved from r31 to r23 for enabled and disabled frame pointers.
+  r31 stays allocatable when frame pointers are disabled
+  (Tim McGilchrist, reviewed by ????)
+
 ### Type system:
 
 * #11648, #14766, #14768, #14776, #14842, #14845: Keep expansion and
