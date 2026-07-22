@@ -2150,8 +2150,10 @@ void caml_poll_gc_work(void)
 
   if (d->requested_major_slice || d->requested_global_major_slice) {
     CAML_EV_BEGIN(EV_MAJOR);
+    OCAML_USDT_GC_MAJOR_BEGIN(d->id);
     d->requested_major_slice = 0;
     caml_major_collection_slice(AUTO_TRIGGERED_MAJOR_SLICE);
+    OCAML_USDT_GC_MAJOR_END(d->id);
     CAML_EV_END(EV_MAJOR);
   }
 

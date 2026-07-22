@@ -184,10 +184,7 @@ provider ocaml {
     probe interrupt__remote__begin(int domain_id);
     probe interrupt__remote__end(int domain_id);
 
-    /* Minor heap allocation */
-    probe alloc__minor(int domain_id, uint64_t size_words);
-
-    /* Major heap allocation */
+    /* Major heap allocation (per block, in caml_shared_try_alloc) */
     probe alloc__major(int domain_id, uint64_t size_words);
 
     /*
@@ -197,15 +194,9 @@ provider ocaml {
     probe domain__terminate(int domain_id);
 
     /*
-     * Runtime life cycle
-     */
-    probe runtime__begin();
-    probe runtime__end();
-
-
-    /*
      * Memory Heap Statistics
-     * TODO Do we need this, is there an equivalent selection of counters we could use instead? It doesn't directly map to a runtime event.
+     * Snapshot of the Gc.stat / Gc.quick_stat triple (minor/major/live
+     * words), fired from caml_gc_quick_stat.
      */
     probe heap__stats(int domain_id, uint64_t minor_words,
                      uint64_t major_words, uint64_t live_words);

@@ -1,3 +1,4 @@
+ocaml:alloc-major
 ocaml:counter-force-minor-alloc-small
 ocaml:counter-force-minor-make-vect
 ocaml:counter-force-minor-memprof
@@ -50,6 +51,8 @@ ocaml:finalise-update-first-begin
 ocaml:finalise-update-first-end
 ocaml:finalise-update-last-begin
 ocaml:finalise-update-last-end
+ocaml:gc-compact-begin
+ocaml:gc-compact-end
 ocaml:gc-compact-evacuate-begin
 ocaml:gc-compact-evacuate-end
 ocaml:gc-compact-forward-begin
@@ -58,6 +61,8 @@ ocaml:gc-compact-release-begin
 ocaml:gc-compact-release-end
 ocaml:gc-empty-minor-begin
 ocaml:gc-empty-minor-end
+ocaml:gc-major-begin
+ocaml:gc-major-end
 ocaml:gc-major-ephe-mark-begin
 ocaml:gc-major-ephe-mark-end
 ocaml:gc-major-ephe-sweep-begin
@@ -116,6 +121,7 @@ ocaml:gc-minor-remembered-set-begin
 ocaml:gc-minor-remembered-set-end
 ocaml:gc-minor-remembered-set-promote-begin
 ocaml:gc-minor-remembered-set-promote-end
+ocaml:heap-stats
 ocaml:interrupt-remote-begin
 ocaml:interrupt-remote-end
 ocaml:stw-api-barrier-begin

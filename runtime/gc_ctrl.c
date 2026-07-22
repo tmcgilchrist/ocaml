@@ -63,6 +63,11 @@ CAMLprim value caml_gc_quick_stat(value v)
   intnat majcoll, mincoll, compactions;
   struct gc_stats s;
   caml_compute_gc_stats(&s);
+  OCAML_USDT_HEAP_STATS(Caml_state->id,
+                        s.alloc_stats.minor_words,
+                        s.alloc_stats.major_words,
+                        (uint64_t)(s.heap_stats.pool_live_words
+                                   + s.heap_stats.large_words));
   majcoll = caml_major_cycles_completed;
   mincoll = atomic_load(&caml_minor_collections_count);
   compactions = atomic_load(&caml_compactions_count);

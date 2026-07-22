@@ -500,6 +500,7 @@ value* caml_shared_try_alloc(struct caml_heap_state* local, mlsize_t wosize,
   CAMLassert (tag != Infix_tag);
 
   CAML_EV_ALLOC(wosize);
+  OCAML_USDT_ALLOC_MAJOR(Caml_state->id, wosize);
 
   if (whsize <= SIZECLASS_MAX) {
     struct heap_stats* s;
@@ -1153,6 +1154,7 @@ void caml_compact_heap(caml_domain_state* domain_state,
 {
   caml_gc_log("Compacting heap start");
   CAML_EV_BEGIN(EV_COMPACT);
+  OCAML_USDT_GC_COMPACT_BEGIN(Caml_state->id);
   /* Warning: caml_compact_heap must only be called from
      [stw_cycle_all_domains] in major_gc.c as there are
      very specific conditions the compaction algorithm expects.
@@ -1541,6 +1543,7 @@ void caml_compact_heap(caml_domain_state* domain_state,
   }
 
   caml_gc_log("Compacting heap complete");
+  OCAML_USDT_GC_COMPACT_END(Caml_state->id);
   CAML_EV_END(EV_COMPACT);
 }
 

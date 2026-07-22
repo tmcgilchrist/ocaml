@@ -537,20 +537,9 @@
  * Allocation Probes
  * ======================================================================== */
 
-/* Minor heap allocation
- * Maps to: CAML_EV_COUNTER(EV_C_MINOR_ALLOCATED_WORDS, ...)
- * Note: High frequency - use with filtering in tracer
- */
-#if defined(__APPLE__) || defined(__FreeBSD__)
-#define OCAML_USDT_ALLOC_MINOR(domain_id, size_words) \
-    OCAML_ALLOC_MINOR(domain_id, size_words)
-#else
-#define OCAML_USDT_ALLOC_MINOR(domain_id, size_words) \
-    DTRACE_PROBE2(OCAML_PROVIDER, alloc__minor, domain_id, size_words)
-#endif
-
 /* Major heap allocation
- * Maps to: CAML_EV_COUNTER(EV_C_MAJOR_ALLOCATED_WORDS, ...)
+ * Maps to: CAML_EV_ALLOC in caml_shared_try_alloc (per shared-heap block)
+ * Note: High frequency - use with filtering in tracer
  */
 #if defined(__APPLE__) || defined(__FreeBSD__)
 #define OCAML_USDT_ALLOC_MAJOR(domain_id, size_words) \
@@ -584,32 +573,6 @@
 #else
 #define OCAML_USDT_DOMAIN_TERMINATE(domain_id) \
     DTRACE_PROBE1(OCAML_PROVIDER, domain__terminate, domain_id)
-#endif
-
-/* ========================================================================
- * Runtime Lifecycle Probes
- * ======================================================================== */
-
-/* Runtime initialization complete
- * Maps to: EV_RING_START lifecycle event
- */
-#if defined(__APPLE__) || defined(__FreeBSD__)
-#define OCAML_USDT_RUNTIME_BEGIN() \
-    OCAML_RUNTIME_BEGIN()
-#else
-#define OCAML_USDT_RUNTIME_BEGIN() \
-    DTRACE_PROBE(OCAML_PROVIDER, runtime__begin)
-#endif
-
-/* Runtime shutdown beginning
- * Maps to: EV_RING_STOP lifecycle event
- */
-#if defined(__APPLE__) || defined(__FreeBSD__)
-#define OCAML_USDT_RUNTIME_END() \
-    OCAML_RUNTIME_END()
-#else
-#define OCAML_USDT_RUNTIME_END() \
-    DTRACE_PROBE(OCAML_PROVIDER, runtime__end)
 #endif
 
 /* ========================================================================
@@ -679,8 +642,8 @@
  * ======================================================================== */
 
 /* Heap statistics snapshot
- * Aggregates: EV_C_MAJOR_HEAP_WORDS, EV_C_MINOR_ALLOCATED_WORDS, etc.
- * Fired periodically or after major GC events
+ * Maps to: the Gc.stat / Gc.quick_stat triple (minor/major/live words),
+ * fired from caml_gc_quick_stat.
  */
 #if defined(__APPLE__) || defined(__FreeBSD__)
 #define OCAML_USDT_HEAP_STATS(domain_id, minor_words, major_words, live_words) \
@@ -982,9 +945,6 @@
 #define OCAML_USDT_GC_MAJOR_BEGIN_ENABLED() \
     DTRACE_PROBE_ENABLED(OCAML_PROVIDER, gc__major__begin)
 
-#define OCAML_USDT_ALLOC_MINOR_ENABLED() \
-    DTRACE_PROBE_ENABLED(OCAML_PROVIDER, alloc__minor)
-
 #define OCAML_USDT_HEAP_STATS_ENABLED() \
     DTRACE_PROBE_ENABLED(OCAML_PROVIDER, heap__stats)
 
@@ -1097,12 +1057,9 @@
 #define OCAML_USDT_INTERRUPT_REMOTE_BEGIN(did) do {} while(0)
 #define OCAML_USDT_INTERRUPT_REMOTE_END(did) do {} while(0)
 
-#define OCAML_USDT_ALLOC_MINOR(domain_id, size_words) do {} while(0)
 #define OCAML_USDT_ALLOC_MAJOR(domain_id, size_words) do {} while(0)
 #define OCAML_USDT_DOMAIN_SPAWN(domain_id) do {} while(0)
 #define OCAML_USDT_DOMAIN_TERMINATE(domain_id) do {} while(0)
-#define OCAML_USDT_RUNTIME_BEGIN() do {} while(0)
-#define OCAML_USDT_RUNTIME_END() do {} while(0)
 #define OCAML_USDT_STW_BEGIN(domain_id, reason) do {} while(0)
 #define OCAML_USDT_STW_END(domain_id, duration_ns) do {} while(0)
 #define OCAML_USDT_STW_INTERRUPT_SENT(leader_id, target_domain_id) do {} while(0)
@@ -1141,7 +1098,6 @@
 
 #define OCAML_USDT_GC_MINOR_BEGIN_ENABLED() 0
 #define OCAML_USDT_GC_MAJOR_BEGIN_ENABLED() 0
-#define OCAML_USDT_ALLOC_MINOR_ENABLED() 0
 #define OCAML_USDT_HEAP_STATS_ENABLED() 0
 
 #endif /* CAML_WITH_USDT */
