@@ -1,6 +1,6 @@
 (* TEST
  frame_pointers;
- arch_arm64 || arch_amd64 || arch_power;
+ arch_arm64 || arch_amd64 || arch_riscv || arch_power;
  readonly_files = "fp_backtrace.c c_call_.c";
  all_modules = "${readonly_files} c_call.ml";
  if bsd then flags = "-cclib -lexecinfo";
