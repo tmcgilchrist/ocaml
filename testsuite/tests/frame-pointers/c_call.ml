@@ -1,10 +1,11 @@
 (* TEST
  frame_pointers;
- arch_arm64 || arch_amd64 || arch_riscv || arch_power;
  readonly_files = "fp_backtrace.c c_call_.c";
  all_modules = "${readonly_files} c_call.ml";
  if bsd then flags = "-cclib -lexecinfo";
- reference = "${test_source_directory}/c_call.${arch}.reference";
+ (* POWER has no caml_c_call_copy_stack_args, so its backtrace differs. *)
+ if arch_power then
+   reference = "${test_source_directory}/c_call.power.reference";
  native;
 *)
 

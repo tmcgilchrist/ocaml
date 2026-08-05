@@ -6,7 +6,8 @@
    certain C functions in the runtime. *)
  if bsd then flags = "-cclib -lexecinfo";
  arch_arm64 || arch_amd64 || arch_riscv || arch_power;
- reference = "${test_source_directory}/stack_realloc.${arch}.reference";
+ if arch_amd64 then
+   reference = "${test_source_directory}/stack_realloc.amd64.reference";
  native;
  *)
 
