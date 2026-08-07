@@ -12,6 +12,7 @@
 /*                                                                        */
 /**************************************************************************/
 
+#include <caml/alloc.h>
 #include <caml/mlvalues.h>
 
 /* Twelve integer arguments: more than any supported C ABI passes in

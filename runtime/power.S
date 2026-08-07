@@ -1352,9 +1352,17 @@ FUNCTION caml_runstack
      r5: arg */
     /* Save return address, create frame, and save TOC */
         ENTER_FUNCTION
+#ifdef WITH_FRAME_POINTERS
+    /* Frame pointers need a real frame here so the back chain can be walked. */
         stdu    SP, -RESERVED_STACK(SP)
         CFI_ADJUST(RESERVED_STACK)
-        std     2, TOC_SAVE(SP)
+    /* Save the TOC above the recorded stack pointer (Stack_sp is the entry SP),
+       so it survives a reallocation of this stack: caml_try_realloc_stack
+       copies only [sp, Stack_high) and discards anything below sp. */
+        std     2, (TOC_SAVE_PARENT + RESERVED_STACK)(SP)
+#else
+        std     2, TOC_SAVE_PARENT(SP)
+#endif
         addi    3, 3, -1   /* r3 := Ptr_val(r3) */
         ld      12, 0(4)   /* r12 := code pointer */
         mtctr   12         /* CTR := code pointer */
@@ -1368,8 +1376,12 @@ FUNCTION caml_runstack
     /* Stack_sp records caml_runstack's entry frame (= SP + RESERVED_STACK,
        undoing the stdu above), where ENTER_FUNCTION saved LR.
        LEAVE_FUNCTION then recovers LR at Stack_sp + 16. */
+#ifdef WITH_FRAME_POINTERS
         addi    0, SP, RESERVED_STACK
         std     0, Stack_sp(8)
+#else
+        std     SP, Stack_sp(8)
+#endif
         std     TRAP_PTR, Stack_exception(8)
     /* Load new stack pointer and set parent */
         ld      TMP, Stack_handler(3)
@@ -1444,7 +1456,7 @@ FUNCTION caml_runstack
        and subtract RESERVED_STACK to get the actual frame where
        TOC was saved. */
         ld      27, Stack_sp(TMP)    /* saved across C calls */
-        ld      2, (TOC_SAVE - RESERVED_STACK)(27)
+        ld      2, TOC_SAVE_PARENT(27)
     /* free old stack by switching directly to c_stack;
        this is a no-alloc call */
         ld      SP, Caml_state(c_stack)
