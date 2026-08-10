@@ -168,10 +168,29 @@ caml_hot__code_end:
    walker legitimately shows caml_runstack as the intermediate frame. */
 #ifdef WITH_FRAME_POINTERS
 .macro UPDATE_BASE_POINTER handler_reg
+   /* ENTER_FUNCTION first: a frame's return address is read at
+      back_chain + LR_SAVE, so the frame pointed at needs a valid one. */
+        ENTER_FUNCTION
         std     SP, -(16 + TRAP_SIZE + RESERVED_STACK)(\handler_reg)
 .endm
 #else
 .macro UPDATE_BASE_POINTER handler_reg
+.endm
+#endif
+
+/* INIT_LR_SAVE: pre-initialise the LR save area with \target, so a walker
+   finds a return address even when the callee has no frame
+   (fun_frame_required = false). */
+#ifdef WITH_FRAME_POINTERS
+.macro INIT_LR_SAVE target, here
+        bl      \here
+\here:
+        mflr    TMP
+        addi    TMP, TMP, (\target - \here + 4)
+        std     TMP, LR_SAVE(SP)
+.endm
+#else
+.macro INIT_LR_SAVE target, here
 .endm
 #endif
 
@@ -633,8 +652,10 @@ FUNCTION caml_c_call_stack_args
 #endif
    /* Save return address in a callee-save register */
         mflr    C_CALL_RET_ADDR
-#ifndef WITH_FRAME_POINTERS
-   /* Without frame pointers, save it in the caller's frame as usual */
+#ifdef WITH_FRAME_POINTERS
+   /* Saved into the OCaml caller's frame after the copy loop instead, where
+      it cannot be clobbered by the last argument slot. */
+#else
         std     C_CALL_RET_ADDR, LR_SAVE(SP)
 #endif
    /* Switch from OCaml to C */
@@ -928,11 +949,10 @@ FUNCTION caml_start_program
        SP + RESERVED_STACK + TRAP_SIZE (see stdu SP, -8(TMP) above).
        Load it and store as the back chain so frame pointer walking
        can continue from OCaml stack to C stack. */
+#ifdef WITH_FRAME_POINTERS
         ld      0, (RESERVED_STACK + TRAP_SIZE)(SP)
         std     0, 0(SP)
-    /* Set up frame pointer for OCaml code. This must be done before
-       entering OCaml so that r31 = OCaml SP at OCaml function entry. */
-#ifdef WITH_FRAME_POINTERS
+    /* r31 must hold the OCaml SP on entry to OCaml code. */
         mr      FRAME_PTR, SP
 #endif
 
@@ -954,11 +974,7 @@ FUNCTION caml_start_program
        This ensures the unwinder can find LR even if the first OCaml function
        doesn't save it (when fun_frame_required = false). The address stored
        is .Lcaml_retaddr + 4 (the instruction after bctrl). */
-        bl      .Linit_lr_save
-.Linit_lr_save:
-        mflr    TMP
-        addi    TMP, TMP, (.Lcaml_retaddr - .Linit_lr_save + 4)
-        std     TMP, LR_SAVE(SP)
+        INIT_LR_SAVE .Lcaml_retaddr, .Linit_lr_save
 
 .Lcaml_retaddr:
         bctrl
@@ -1264,7 +1280,6 @@ FUNCTION caml_reperform
        the handler may have caused the current fiber stack to reallocate.
        Save LR first so the return address at SP+16 is valid for
        frame walking. */
-        ENTER_FUNCTION
         UPDATE_BASE_POINTER TMP
         b       .Ldo_perform
         CFI_ENDPROC
@@ -1314,7 +1329,6 @@ FUNCTION caml_resume
        the effect handler.  ENTER_FUNCTION must run first: on POWER a frame's
        return address is at back_chain+16, and the fiber's back chain will
        point at handler_SP, so handler_SP+16 needs a valid return address. */
-        ENTER_FUNCTION
         UPDATE_BASE_POINTER 7
     /* Switch stacks and run code */
         SWITCH_OCAML_STACKS 8, 6
@@ -1390,13 +1404,8 @@ FUNCTION caml_runstack
     /* Switch to the new stack, after reserving 32 bytes at bottom */
         addi    SP, 9, -RESERVED_STACK
 #ifdef WITH_FRAME_POINTERS
-    /* Set up back chain to link new stack back to old stack
-       (caml_runstack's frame) */
+    /* Link the fiber's back chain to caml_runstack's frame. */
         std     25, 0(SP)
-#else
-        /* Load caml_runstack's frame pointer from old stack */
-        ld      0, Stack_sp(8)
-        std     0, 0(SP)         /* Store as back chain */
 #endif
 #ifdef ASM_CFI_SUPPORTED
         CFI_REMEMBER_STATE
@@ -1415,11 +1424,7 @@ FUNCTION caml_runstack
        This ensures the GC can find LR even if the first OCaml function
        doesn't save it (when fun_frame_required = false). The address stored
        is .Lframe_runstack + 4 (the instruction after bctrl). */
-        bl      .Linit_runstack_lr
-.Linit_runstack_lr:
-        mflr    TMP
-        addi    TMP, TMP, (.Lframe_runstack - .Linit_runstack_lr + 4)
-        std     TMP, LR_SAVE(SP)
+        INIT_LR_SAVE .Lframe_runstack, .Linit_runstack_lr
     /* Call the function on the new stack */
         mr      3, 5   /* argument */
 .Lframe_runstack:
@@ -1428,8 +1433,12 @@ FUNCTION caml_runstack
     /* Load stack_handler from current_stack->handler.
        We cannot compute it from SP because the initial Stack_sp has a variable
        offset (wsize) from the handler. */
+#ifdef WITH_FRAME_POINTERS
         ld      8, Caml_state(current_stack)
         ld      8, Stack_handler(8) /* r8 := stack_handler */
+#else
+        addi    8, SP, (RESERVED_STACK + TRAP_SIZE + 16)
+#endif
         ld      25, Handler_value(8) /* saved across C call */
 1:
         mr      26, 3                /* save return value across C call */
@@ -1469,8 +1478,12 @@ FUNCTION caml_runstack
     /* After exception, load stack_handler from current_stack->handler.
        We cannot compute it from SP because the initial Stack_sp has a variable
        offset (wsize) from the handler. */
+#ifdef WITH_FRAME_POINTERS
         ld      8, Caml_state(current_stack)
         ld      8, Stack_handler(8) /* r8 := stack_handler */
+#else
+        addi    8, SP, (RESERVED_STACK + 16)
+#endif
         ld      25, Handler_exception(8)
         b       1b
         CFI_ENDPROC
