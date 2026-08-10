@@ -144,6 +144,9 @@ ASM=@AS@
 ### Command and flags to use for assembling .S files (often with preprocessing)
 ASPP=@ASPP@
 
+### Command to use for generating DTrace probe headers (macOS/FreeBSD)
+DTRACE=@DTRACE@
+
 ### Set to "true" to install ".byte" executables (ocamlc.byte, etc.)
 INSTALL_BYTECODE_PROGRAMS=@install_bytecode_programs@
 

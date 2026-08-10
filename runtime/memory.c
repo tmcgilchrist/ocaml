@@ -39,6 +39,7 @@
 #include "caml/fiber.h"
 #include "caml/platform.h"
 #include "caml/runtime_events.h"
+#include "caml/usdt_probes.h"
 #include "caml/tsan.h"
 
 /* Note [MM]: Enforcing the memory model.
@@ -398,6 +399,7 @@ CAMLexport void caml_adjust_gc_speed (mlsize_t res, mlsize_t max)
   Caml_state->extra_heap_resources += (double) res / (double) max;
   if (Caml_state->extra_heap_resources > 0.2){
     CAML_EV_COUNTER (EV_C_REQUEST_MAJOR_ADJUST_GC_SPEED, 1);
+    OCAML_USDT_COUNTER_REQUEST_MAJOR_ADJUST_GC_SPEED(Caml_state->id);
     caml_request_major_slice (1);
   }
 }
@@ -557,6 +559,7 @@ Caml_inline value alloc_shr(mlsize_t wosize, tag_t tag, reserved_t reserved,
     dom_st, Whsize_wosize(wosize), 1 /* direct */);
   if (dom_st->allocated_words_direct > dom_st->minor_heap_wsz / 5) {
     CAML_EV_COUNTER (EV_C_REQUEST_MAJOR_ALLOC_SHR, 1);
+    OCAML_USDT_COUNTER_REQUEST_MAJOR_ALLOC_SHR(dom_st->id);
     caml_request_major_slice(1);
   }
 

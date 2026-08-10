@@ -118,6 +118,21 @@ let runtime_lib () =
     with Not_found ->
       raise(Error(File_not_found libname))
 
+(* On FreeBSD, dtrace -G generates a probe object containing the DOF
+   section needed for probe discovery. Link it into the final executable
+   so that dtrace can find the probes at runtime. *)
+let dtrace_probe_object () =
+  if system <> "freebsd" then []
+  else if !Clflags.runtime_variant = "_shared" then []
+  else if !Clflags.nopervasives || not !Clflags.with_runtime then []
+  else
+    let objname =
+      "ocaml_probes.n" ^ !Clflags.runtime_variant ^ ext_obj
+    in
+    match Load_path.find objname with
+    | path -> [path]
+    | exception Not_found -> []
+
 (* First pass: determine which units are needed *)
 
 type file =
@@ -313,7 +328,8 @@ let call_linker file_list startup_file output_name =
   let files = startup_file :: (List.rev file_list) in
   let files, ldflags =
     if (not !Clflags.output_c_object) || main_dll || main_obj_runtime then
-      files @ (List.rev !Clflags.ccobjs) @ runtime_lib (),
+      files @ (List.rev !Clflags.ccobjs) @ runtime_lib ()
+        @ dtrace_probe_object (),
       native_ldflags ^ " " ^
       (if !Clflags.nopervasives || (main_obj_runtime && not main_dll)
        then "" else Config.native_c_libraries)

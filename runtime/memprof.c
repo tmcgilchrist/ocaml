@@ -29,6 +29,7 @@
 #include "caml/mlvalues.h"
 #include "caml/platform.h"
 #include "caml/runtime_events.h"
+#include "caml/usdt_probes.h"
 #include "caml/shared_heap.h"
 
 /* Design
@@ -2125,6 +2126,7 @@ void caml_memprof_sample_young(uintnat wosize, int from_caml,
      * allocated. We must not trigger a GC after this point. */
     while (Caml_state->young_ptr - whsize < Caml_state->young_trigger) {
       CAML_EV_COUNTER(EV_C_FORCE_MINOR_MEMPROF, 1);
+      OCAML_USDT_COUNTER_FORCE_MINOR_MEMPROF(Caml_state->id);
       caml_poll_gc_work();
     }
     Caml_state->young_ptr -= whsize;

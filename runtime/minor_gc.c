@@ -23,6 +23,7 @@
 #include "caml/custom.h"
 #include "caml/domain.h"
 #include "caml/runtime_events.h"
+#include "caml/usdt_probes.h"
 #include "caml/fail.h"
 #include "caml/fiber.h"
 #include "caml/finalise.h"
@@ -41,6 +42,7 @@
 #include "caml/signals.h"
 #include "caml/startup_aux.h"
 #include "caml/weak.h"
+#include "caml/usdt_probes.h"
 
 struct generic_table CAML_TABLE_STRUCT(char);
 
@@ -130,6 +132,7 @@ void caml_set_minor_heap_size (asize_t wsize)
 
   if (domain_state->young_ptr != domain_state->young_end) {
     CAML_EV_COUNTER (EV_C_FORCE_MINOR_SET_MINOR_HEAP_SIZE, 1);
+    OCAML_USDT_COUNTER_FORCE_MINOR_SET_MINOR_HEAP_SIZE(domain_state->id);
     caml_minor_collection();
   }
   CAMLassert (domain_state->young_ptr == domain_state->young_end);
@@ -544,17 +547,21 @@ caml_empty_minor_heap_promote(caml_domain_state* domain,
 
   caml_gc_log ("Minor collection of domain %d starting", domain->id);
   CAML_EV_BEGIN(EV_MINOR);
+  OCAML_USDT_GC_MINOR_BEGIN(domain->id);
   call_timing_hook(&caml_minor_gc_begin_hook);
 
   CAMLassert(domain == Caml_state);
 
   if( participating[0] == domain ) {
     CAML_EV_BEGIN(EV_MINOR_GLOBAL_ROOTS);
+    OCAML_USDT_GC_MINOR_GLOBAL_ROOTS_BEGIN(domain->id);
     caml_scan_global_young_roots(oldify_one, &st);
+    OCAML_USDT_GC_MINOR_GLOBAL_ROOTS_END(domain->id);
     CAML_EV_END(EV_MINOR_GLOBAL_ROOTS);
   }
 
  CAML_EV_BEGIN(EV_MINOR_REMEMBERED_SET);
+  OCAML_USDT_GC_MINOR_REMEMBERED_SET_BEGIN(domain->id);
 
   if( participating_count > 1 ) {
     int participating_idx = -1;
@@ -599,6 +606,7 @@ caml_empty_minor_heap_promote(caml_domain_state* domain,
         ref_end = foreign_major_ref->ptr;
       }
 
+      /* TODO Add counter events here, is there an equivalent for runtime events? */
       caml_gc_log("idx: %d, foreign_domain: %d, ref_size: %" CAML_PRIdNAT ", "
         "refs_per_domain: %" CAML_PRIdNAT ", ref_base: %p, ref_ptr: %p, "
         "ref_start: %p, ref_end: %p",
@@ -642,19 +650,26 @@ caml_empty_minor_heap_promote(caml_domain_state* domain,
   #endif
 
   CAML_EV_BEGIN(EV_MINOR_FINALIZERS_OLDIFY);
+  OCAML_USDT_GC_MINOR_FINALIZERS_OLDIFY_BEGIN(domain->id);
   /* promote the finalizers unconditionally as we want to avoid barriers */
   caml_final_do_young_roots (&oldify_one, oldify_scanning_flags, &st,
                              domain, 0);
+  OCAML_USDT_GC_MINOR_FINALIZERS_OLDIFY_END(domain->id);
   CAML_EV_END(EV_MINOR_FINALIZERS_OLDIFY);
 
   CAML_EV_BEGIN(EV_MINOR_MEMPROF_ROOTS);
+  OCAML_USDT_GC_MINOR_MEMPROF_ROOTS_BEGIN(domain->id);
   caml_memprof_scan_roots(&oldify_one, oldify_scanning_flags, &st,
                           domain, false);
+  OCAML_USDT_GC_MINOR_MEMPROF_ROOTS_END(domain->id);
   CAML_EV_END(EV_MINOR_MEMPROF_ROOTS);
 
   CAML_EV_BEGIN(EV_MINOR_REMEMBERED_SET_PROMOTE);
+  OCAML_USDT_GC_MINOR_REMEMBERED_SET_PROMOTE_BEGIN(domain->id);
   promote_result result = oldify_mopup (&st, 1); /* ephemerons promoted here */
+  OCAML_USDT_GC_MINOR_REMEMBERED_SET_PROMOTE_END(domain->id);
   CAML_EV_END(EV_MINOR_REMEMBERED_SET_PROMOTE);
+  OCAML_USDT_GC_MINOR_REMEMBERED_SET_END(domain->id);
   CAML_EV_END(EV_MINOR_REMEMBERED_SET);
   caml_gc_log("promoted %d roots, %" CAML_PRIuNAT " bytes",
               remembered_roots, st.live_bytes);
@@ -672,6 +687,7 @@ caml_empty_minor_heap_promote(caml_domain_state* domain,
 #endif
 
   CAML_EV_BEGIN(EV_MINOR_LOCAL_ROOTS);
+  OCAML_USDT_GC_MINOR_LOCAL_ROOTS_BEGIN(domain->id);
   caml_do_local_roots(
     &oldify_one, oldify_scanning_flags, &st,
     domain->local_roots, domain->current_stack, domain->gc_regs);
@@ -681,8 +697,11 @@ caml_empty_minor_heap_promote(caml_domain_state* domain,
     (*scan_roots_hook)(&oldify_one, oldify_scanning_flags, &st, domain);
 
   CAML_EV_BEGIN(EV_MINOR_LOCAL_ROOTS_PROMOTE);
+  OCAML_USDT_GC_MINOR_LOCAL_ROOTS_PROMOTE_BEGIN(domain->id);
   oldify_mopup (&st, 0);
+  OCAML_USDT_GC_MINOR_LOCAL_ROOTS_PROMOTE_END(domain->id);
   CAML_EV_END(EV_MINOR_LOCAL_ROOTS_PROMOTE);
+  OCAML_USDT_GC_MINOR_LOCAL_ROOTS_END(domain->id);
   CAML_EV_END(EV_MINOR_LOCAL_ROOTS);
 
   domain->young_ptr = domain->young_end;
@@ -725,13 +744,23 @@ caml_empty_minor_heap_promote(caml_domain_state* domain,
   call_timing_hook(&caml_minor_gc_end_hook);
   CAML_EV_COUNTER(EV_C_MINOR_PROMOTED,
                   Bsize_wsize(domain->allocated_words - prev_alloc_words));
+  OCAML_USDT_COUNTER_MINOR_PROMOTED(domain->id,
+                  Bsize_wsize(domain->allocated_words - prev_alloc_words));
   CAML_EV_COUNTER(EV_C_MINOR_PROMOTED_WORDS,
+                  domain->allocated_words - prev_alloc_words);
+  OCAML_USDT_COUNTER_MINOR_PROMOTED_WORDS(domain->id,
                   domain->allocated_words - prev_alloc_words);
 
   CAML_EV_COUNTER(EV_C_MINOR_ALLOCATED, minor_allocated_bytes);
+  OCAML_USDT_COUNTER_MINOR_ALLOCATED(domain->id, minor_allocated_bytes);
   CAML_EV_COUNTER(EV_C_MINOR_ALLOCATED_WORDS,
                   Whsize_wosize(minor_allocated_bytes));
+  OCAML_USDT_COUNTER_MINOR_ALLOCATED_WORDS(domain->id,
+                  Whsize_wosize(minor_allocated_bytes));
 
+  OCAML_USDT_GC_MINOR_END(domain->id,
+                          domain->allocated_words - prev_alloc_words,
+                          Whsize_wosize(minor_allocated_bytes));
   CAML_EV_END(EV_MINOR);
   if (minor_allocated_bytes == 0)
     caml_gc_log ("Minor collection of domain %d completed:"
@@ -747,7 +776,9 @@ caml_empty_minor_heap_promote(caml_domain_state* domain,
   /* leave the barrier */
   if( participating_count > 1 ) {
     CAML_EV_BEGIN(EV_MINOR_LEAVE_BARRIER);
+    OCAML_USDT_GC_MINOR_LEAVE_BARRIER_BEGIN(domain->id);
     minor_gc_leave_barrier(domain, participating_count);
+    OCAML_USDT_GC_MINOR_LEAVE_BARRIER_END(domain->id);
     CAML_EV_END(EV_MINOR_LEAVE_BARRIER);
   }
   return result;
@@ -847,9 +878,15 @@ int caml_do_opportunistic_major_slice
     /* NB: need to put guard around the ev logs to prevent spam when we poll */
     uintnat log_events =
         atomic_load_relaxed(&caml_verb_gc) & CAML_GC_MSG_SLICESIZE;
-    if (log_events) CAML_EV_BEGIN(EV_MAJOR_MARK_OPPORTUNISTIC);
+    if (log_events) {
+      CAML_EV_BEGIN(EV_MAJOR_MARK_OPPORTUNISTIC);
+      OCAML_USDT_GC_MAJOR_MARK_OPPORTUNISTIC_BEGIN(domain_state->id);
+    }
     caml_opportunistic_major_collection_slice(Major_slice_work_min);
-    if (log_events) CAML_EV_END(EV_MAJOR_MARK_OPPORTUNISTIC);
+    if (log_events) {
+      OCAML_USDT_GC_MAJOR_MARK_OPPORTUNISTIC_END(domain_state->id);
+      CAML_EV_END(EV_MAJOR_MARK_OPPORTUNISTIC);
+    }
   }
   return work_available;
 }
@@ -899,14 +936,18 @@ caml_stw_empty_minor_heap_no_major_slice(caml_domain_state* domain,
 
   if (prom.locked_ephemerons) {
     CAML_EV_BEGIN(EV_MINOR_EPHE_CLEAN);
+    OCAML_USDT_GC_MINOR_EPHE_CLEAN_BEGIN(domain->id);
     caml_gc_log("cleaning minor ephemerons");
     ephe_clean_minor(domain);
+    OCAML_USDT_GC_MINOR_EPHE_CLEAN_END(domain->id);
     CAML_EV_END(EV_MINOR_EPHE_CLEAN);
   }
 
   CAML_EV_BEGIN(EV_MINOR_MEMPROF_CLEAN);
+  OCAML_USDT_GC_MINOR_MEMPROF_CLEAN_BEGIN(domain->id);
   caml_gc_log("updating memprof");
   caml_memprof_after_minor_gc(domain);
+  OCAML_USDT_GC_MINOR_MEMPROF_CLEAN_END(domain->id);
   CAML_EV_END(EV_MINOR_MEMPROF_CLEAN);
 
   /* while the minor heap is empty, allow the major GC to mark roots */
@@ -914,16 +955,21 @@ caml_stw_empty_minor_heap_no_major_slice(caml_domain_state* domain,
     caml_mark_roots_stw(participating_count, participating);
 
   CAML_EV_BEGIN(EV_MINOR_FINALIZED);
+  OCAML_USDT_GC_MINOR_FINALIZED_BEGIN(domain->id);
   caml_gc_log("finalizing dead minor custom blocks");
   custom_finalize_minor(domain);
+  OCAML_USDT_GC_MINOR_FINALIZED_END(domain->id);
   CAML_EV_END(EV_MINOR_FINALIZED);
 
   CAML_EV_BEGIN(EV_MINOR_FINALIZERS_ADMIN);
+  OCAML_USDT_GC_MINOR_FINALIZERS_ADMIN_BEGIN(domain->id);
   caml_gc_log("running finalizer data structure book-keeping");
   caml_final_update_last_minor(domain);
+  OCAML_USDT_GC_MINOR_FINALIZERS_ADMIN_END(domain->id);
   CAML_EV_END(EV_MINOR_FINALIZERS_ADMIN);
 
   CAML_EV_BEGIN(EV_MINOR_CLEAR);
+  OCAML_USDT_GC_MINOR_CLEAR_BEGIN(domain->id);
   caml_gc_log("running stw empty_minor_heap_domain_clear");
   caml_empty_minor_heap_domain_clear(domain);
 
@@ -934,6 +980,7 @@ caml_stw_empty_minor_heap_no_major_slice(caml_domain_state* domain,
   }
 #endif
 
+  OCAML_USDT_GC_MINOR_CLEAR_END(domain->id);
   CAML_EV_END(EV_MINOR_CLEAR);
   caml_gc_log("finished stw empty_minor_heap");
   CAMLassert(domain->young_ptr == domain->young_end);
@@ -996,6 +1043,7 @@ void caml_empty_minor_heaps_once (void)
   #endif
 
   CAML_EV_BEGIN(EV_EMPTY_MINOR);
+  OCAML_USDT_GC_EMPTY_MINOR_BEGIN(Caml_state->id);
 
   /* To handle the case where multiple domains try to execute a minor gc
      STW section */
@@ -1004,6 +1052,7 @@ void caml_empty_minor_heaps_once (void)
   } while (saved_minor_cycle ==
            atomic_load_relaxed(&caml_minor_cycles_started));
 
+  OCAML_USDT_GC_EMPTY_MINOR_END(Caml_state->id);
   CAML_EV_END(EV_EMPTY_MINOR);
 }
 
@@ -1040,6 +1089,7 @@ void caml_alloc_small_dispatch (caml_domain_state * dom_st,
     /* If not, then empty the minor heap, and check again for async
        callbacks. */
     CAML_EV_COUNTER(EV_C_FORCE_MINOR_ALLOC_SMALL, 1);
+    OCAML_USDT_COUNTER_FORCE_MINOR_ALLOC_SMALL(dom_st->id);
     caml_poll_gc_work();
   }
 
@@ -1099,6 +1149,24 @@ static void realloc_generic_table
                          element_size);
   }else if (tbl->limit == tbl->threshold){
     CAML_EV_COUNTER (ev_counter_name, 1);
+    switch (ev_counter_name) {
+      case EV_C_REQUEST_MINOR_REALLOC_REF_TABLE:
+        OCAML_USDT_COUNTER_REQUEST_MINOR_REALLOC_REF_TABLE(Caml_state->id);
+        break;
+      case EV_C_REQUEST_MINOR_REALLOC_EPHE_REF_TABLE:
+        OCAML_USDT_COUNTER_REQUEST_MINOR_REALLOC_EPHE_REF_TABLE(
+            Caml_state->id);
+        break;
+      case EV_C_REQUEST_MINOR_REALLOC_CUSTOM_TABLE:
+        OCAML_USDT_COUNTER_REQUEST_MINOR_REALLOC_CUSTOM_TABLE(
+            Caml_state->id);
+        break;
+      default:
+        break;
+    }
+    /* TODO Is there a matching runtime event for this?
+       This could be tidied up to lookup USDT probe based on ev_counter_name?
+     */
     CAML_GC_MESSAGE(STACKSIZE, msg_threshold, 0);
     tbl->limit = tbl->end;
     caml_request_minor_gc ();

@@ -264,6 +264,7 @@ AC_SUBST([ocamltest_opt_target])
 AC_SUBST([ASPP])
 AC_SUBST([endianness])
 AC_SUBST([AS])
+AC_SUBST([DTRACE])
 AC_SUBST([asm_cfi_supported])
 AC_SUBST([asm_size_type_directives])
 AC_SUBST([asm_dwarf_version])
@@ -279,6 +280,7 @@ AC_SUBST([install_source_artifacts])
 AC_SUBST([install_ocamlnat])
 AC_SUBST([reserved_header_bits])
 AC_SUBST([frame_pointers])
+AC_SUBST([usdt])
 AC_SUBST([flambda])
 AC_SUBST([flambda_invariants])
 AC_SUBST([cmm_invariants])
@@ -541,6 +543,12 @@ AC_ARG_ENABLE([instrumented-runtime],
     [build the instrumented runtime @<:@default=auto@:>@])],
   [],
   [enable_instrumented_runtime=auto])
+
+AC_ARG_ENABLE([usdt],
+  [AS_HELP_STRING([--enable-usdt],
+    [enable USDT probes for DTrace/SystemTap/bpftrace tracing])],
+  [],
+  [enable_usdt=no])
 
 AC_ARG_ENABLE([vmthreads], [],
   [AS_IF([test "x$enableval" != 'xno'],
@@ -1428,6 +1436,39 @@ AC_CHECK_HEADER([sys/select.h], [AC_DEFINE([HAS_SYS_SELECT_H], [1])], [],
   [#include <sys/types.h>])
 
 AC_CHECK_HEADER([sys/mman.h], [AC_DEFINE([HAS_SYS_MMAN_H], [1])])
+
+# Check for SystemTap SDT (Statically Defined Tracing) support
+# Only check if explicitly enabled via --enable-usdt
+AS_IF([test "x$enable_usdt" = "xyes"],
+  [AS_CASE([$host],
+    [*-*-darwin*|*-*-freebsd*],
+      [AC_MSG_CHECKING([for dtrace])
+       AC_CHECK_PROG([DTRACE], [dtrace], [dtrace])
+       AS_IF([test "x$DTRACE" = "x"],
+         [AC_MSG_ERROR([USDT enabled but dtrace not found. DTrace is required on macOS/FreeBSD.])],
+         [AC_DEFINE([CAML_WITH_USDT], [1],
+           [Define if USDT probes are enabled])
+          usdt=true
+          dnl DTrace-generated headers use $ in identifiers which triggers
+          dnl -Wdollar-in-identifier-extension under -Wpedantic on clang.
+          dnl Must be in cc/cxx_extra_warnings (not internal_cflags) so it
+          dnl appears after -Wpedantic in the compilation command.
+          AX_CHECK_COMPILE_FLAG([-Wno-dollar-in-identifier-extension],
+            [cc_extra_warnings="$cc_extra_warnings \
+-Wno-dollar-in-identifier-extension"
+             cxx_extra_warnings="$cxx_extra_warnings \
+-Wno-dollar-in-identifier-extension"], [], [$warn_error_flag])
+          AC_MSG_RESULT([yes])])],
+    [*],
+      [AC_MSG_CHECKING([for sys/sdt.h])
+       AC_CHECK_HEADER([sys/sdt.h],
+         [AC_DEFINE([CAML_WITH_USDT], [1],
+           [Define if USDT probes are enabled and SystemTap SDT headers are available])
+          usdt=true
+          AC_MSG_RESULT([yes])],
+         [AC_MSG_ERROR([USDT enabled but sys/sdt.h not found. Install systemtap-sdt-dev (Debian/Ubuntu) or systemtap-sdt-devel (Fedora/RHEL).])],
+         [])])],
+  [usdt=false])
 
 AS_CASE([$target],
   [*-*-linux*],

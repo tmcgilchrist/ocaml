@@ -105,6 +105,8 @@ let instrumented_runtime = @instrumented_runtime@
 
 let frame_pointers = @frame_pointers@
 
+let usdt = @usdt@
+
 let tsan = @tsan@
 
 let has_relative_libdir = @target_libdir_is_relative@

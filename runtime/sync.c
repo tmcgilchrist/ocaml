@@ -25,6 +25,7 @@
 #include "caml/sync.h"
 #include "caml/sys.h"
 #include "caml/runtime_events.h"
+#include "caml/usdt_probes.h"
 
 /* System-dependent part */
 #ifdef _WIN32
@@ -198,10 +199,12 @@ CAMLprim value caml_ml_condition_wait(value wcond, value wmut)
   sync_retcode retcode;
 
   CAML_EV_BEGIN(EV_DOMAIN_CONDITION_WAIT);
+  OCAML_USDT_DOMAIN_CONDITION_WAIT_BEGIN(Caml_state->id);
   caml_enter_blocking_section();
   retcode = sync_condvar_wait(cond, mut);
   caml_leave_blocking_section();
   caml_check_error(retcode, "Condition.wait");
+  OCAML_USDT_DOMAIN_CONDITION_WAIT_END(Caml_state->id);
   CAML_EV_END(EV_DOMAIN_CONDITION_WAIT);
 
   CAMLreturn(Val_unit);

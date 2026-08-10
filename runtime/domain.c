@@ -73,6 +73,7 @@ typedef cpuset_t cpu_set_t;
 #include "caml/startup_aux.h"
 #include "caml/sync.h"
 #include "caml/weak.h"
+#include "caml/usdt_probes.h"
 
 /* Check that the domain_state structure was laid out without padding,
    since the runtime assumes this in computing offsets */
@@ -701,6 +702,7 @@ static
 void domain_resize_heaps_reservation_from_stw_single(uintnat new_minor_wsz)
 {
   CAML_EV_BEGIN(EV_DOMAIN_RESIZE_HEAP_RESERVATION);
+  OCAML_USDT_DOMAIN_RESIZE_HEAP_RESERVATION_BEGIN(Caml_state->id);
   caml_gc_log("stw_resize_minor_heaps_reservation: unreserve");
 
   unreserve_minor_heaps_reservation_from_stw_single();
@@ -719,6 +721,7 @@ void domain_resize_heaps_reservation_from_stw_single(uintnat new_minor_wsz)
      the participating domains will synchronize with this write by
      exiting the barrier, before they read those variables in
      [allocate_minor_heap_arena] below. */
+  OCAML_USDT_DOMAIN_RESIZE_HEAP_RESERVATION_END(Caml_state->id);
   CAML_EV_END(EV_DOMAIN_RESIZE_HEAP_RESERVATION);
 }
 
@@ -1424,6 +1427,7 @@ domain_thread_func(void* v)
   caml_gc_log("Domain starting (unique_id = %" CAML_PRIuNAT ")",
               domain_self->interruptor.unique_id);
   CAML_EV_LIFECYCLE(EV_DOMAIN_SPAWN, getpid());
+  OCAML_USDT_DOMAIN_SPAWN(domain_self->id);
 
   exn = caml_domain_initialize_hook_exn();
   if (Is_exception_result(exn)) {
@@ -1678,19 +1682,27 @@ static void stw_wait_for_running(caml_domain_state* domain)
 
 static void stw_api_barrier(caml_domain_state* domain)
 {
+  OCAML_USDT_STW_BARRIER_ENTER(domain->id, 0); /* barrier_id: 0=API_BARRIER */
   CAML_EV_BEGIN(EV_STW_API_BARRIER);
+  OCAML_USDT_STW_API_BARRIER_BEGIN(domain->id);
+  OCAML_USDT_STW_BEGIN(domain->id, 0); /* reason: 0=API_BARRIER */
   if (caml_plat_barrier_arrive(&stw_request.domains_still_running)
       == stw_request.num_domains) {
     caml_plat_barrier_release(&stw_request.domains_still_running);
   } else {
     stw_wait_for_running(domain);
   }
+  OCAML_USDT_STW_END(domain->id, 0);
+  OCAML_USDT_STW_API_BARRIER_END(domain->id);
   CAML_EV_END(EV_STW_API_BARRIER);
 }
 
 static void stw_handler(caml_domain_state* domain)
 {
+  OCAML_USDT_STW_HANDLER_ENTER(domain->id);
   CAML_EV_BEGIN(EV_STW_HANDLER);
+  OCAML_USDT_STW_HANDLER_BEGIN(domain->id);
+  OCAML_USDT_STW_BEGIN(domain->id, 1); /* reason: 1=HANDLER */
   if (!caml_plat_barrier_is_released(&stw_request.domains_still_running)) {
     stw_api_barrier(domain);
   }
@@ -1709,6 +1721,8 @@ static void stw_handler(caml_domain_state* domain)
 
   decrement_stw_domains_still_processing();
 
+  OCAML_USDT_STW_END(domain->id, 0);
+  OCAML_USDT_STW_HANDLER_END(domain->id);
   CAML_EV_END(EV_STW_HANDLER);
 
   /* poll the GC to check for deferred work
@@ -1859,6 +1873,8 @@ int caml_try_run_on_all_domains_with_spin_work(
   atomic_store_release(&stw_leader, (uintnat)domain_self);
 
   CAML_EV_BEGIN(EV_STW_LEADER);
+  OCAML_USDT_STW_LEADER_BEGIN(domain_state->id);
+  OCAML_USDT_STW_BEGIN(domain_state->id, 2); /* reason: 2=LEADER */
   caml_gc_log("causing STW");
 
   /* set up all fields for this stw_request; they must be available
@@ -1900,7 +1916,10 @@ int caml_try_run_on_all_domains_with_spin_work(
     dom_internal * d = stw_domains.domains[i];
     stw_request.participating[i] = d->state;
     CAMLassert(!interruptor_has_pending(&d->interruptor));
-    if (d->state != domain_state) caml_send_interrupt(&d->interruptor);
+    if (d->state != domain_state) {
+      OCAML_USDT_STW_INTERRUPT_SENT(domain_state->id, d->state->id);
+      caml_send_interrupt(&d->interruptor);
+    }
   }
 
 
@@ -1939,6 +1958,8 @@ int caml_try_run_on_all_domains_with_spin_work(
      [all_domains_cond], waking up any domain waiting to be created. */
   decrement_stw_domains_still_processing();
 
+  OCAML_USDT_STW_END(domain_state->id, 0);
+  OCAML_USDT_STW_LEADER_END(domain_state->id);
   CAML_EV_END(EV_STW_LEADER);
 
   return 1;
@@ -2129,8 +2150,10 @@ void caml_poll_gc_work(void)
 
   if (d->requested_major_slice || d->requested_global_major_slice) {
     CAML_EV_BEGIN(EV_MAJOR);
+    OCAML_USDT_GC_MAJOR_BEGIN(d->id);
     d->requested_major_slice = 0;
     caml_major_collection_slice(AUTO_TRIGGERED_MAJOR_SLICE);
+    OCAML_USDT_GC_MAJOR_END(d->id);
     CAML_EV_END(EV_MAJOR);
   }
 
@@ -2153,7 +2176,9 @@ void caml_handle_gc_interrupt(void)
   if (caml_incoming_interrupts_queued()) {
     /* interrupt */
     CAML_EV_BEGIN(EV_INTERRUPT_REMOTE);
+    OCAML_USDT_INTERRUPT_REMOTE_BEGIN(Caml_state->id);
     caml_handle_incoming_interrupts();
+    OCAML_USDT_INTERRUPT_REMOTE_END(Caml_state->id);
     CAML_EV_END(EV_INTERRUPT_REMOTE);
   }
 
@@ -2295,6 +2320,7 @@ void caml_domain_terminate(bool last)
     /* No need to check for interrupts if we are the last domain running. */
     if (last) {
       CAML_EV_LIFECYCLE(EV_DOMAIN_TERMINATE, getpid());
+      OCAML_USDT_DOMAIN_TERMINATE(domain_self->id);
       break;
     }
 
@@ -2346,6 +2372,7 @@ void caml_domain_terminate(bool last)
          after that, this domain will no longer take part in STWs and emitting
          an event could race with runtime events teardown. */
       CAML_EV_LIFECYCLE(EV_DOMAIN_TERMINATE, getpid());
+      OCAML_USDT_DOMAIN_TERMINATE(domain_self->id);
     }
     caml_plat_unlock(&all_domains_lock);
   }
