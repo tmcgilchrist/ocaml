@@ -1430,15 +1430,8 @@ FUNCTION caml_runstack
 .Lframe_runstack:
         bctrl
     /* Clean up on return */
-    /* Load stack_handler from current_stack->handler.
-       We cannot compute it from SP because the initial Stack_sp has a variable
-       offset (wsize) from the handler. */
-#ifdef WITH_FRAME_POINTERS
-        ld      8, Caml_state(current_stack)
-        ld      8, Stack_handler(8) /* r8 := stack_handler */
-#else
         addi    8, SP, (RESERVED_STACK + TRAP_SIZE + 16)
-#endif
+                                       /* r8 := stack_handler */
         ld      25, Handler_value(8) /* saved across C call */
 1:
         mr      26, 3                /* save return value across C call */
@@ -1475,15 +1468,7 @@ FUNCTION caml_runstack
         LEAVE_FUNCTION
         bctr
 .Lfiber_exn_handler:
-    /* After exception, load stack_handler from current_stack->handler.
-       We cannot compute it from SP because the initial Stack_sp has a variable
-       offset (wsize) from the handler. */
-#ifdef WITH_FRAME_POINTERS
-        ld      8, Caml_state(current_stack)
-        ld      8, Stack_handler(8) /* r8 := stack_handler */
-#else
-        addi    8, SP, (RESERVED_STACK + 16)
-#endif
+        addi    8, SP, (RESERVED_STACK + 16) /* r8 := stack_handler */
         ld      25, Handler_exception(8)
         b       1b
         CFI_ENDPROC
