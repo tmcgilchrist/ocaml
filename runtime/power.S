@@ -54,7 +54,8 @@
 #define TOC_SAVE_PARENT 8
 #define TOC_SAVE 24
 /* Trap frame size, must match emit.mlp's [trap_size].
-   With frame pointers we need >= RESERVED_STACK + 16; otherwise 16 suffices. */
+   With frame pointers we need >= RESERVED_STACK + 16.  Otherwise 16
+   suffices. */
 #ifdef WITH_FRAME_POINTERS
 #define TRAP_SIZE 48
 #else
@@ -178,9 +179,8 @@ caml_hot__code_end:
 .endm
 #endif
 
-/* INIT_LR_SAVE: pre-initialise the LR save area with \target, so a walker
-   finds a return address even when the callee has no frame
-   (fun_frame_required = false). */
+/* INIT_LR_SAVE: store \target in this frame's LR save area, obtaining its
+   address with a bl to the next instruction. */
 #ifdef WITH_FRAME_POINTERS
 .macro INIT_LR_SAVE target, here
         bl      \here
@@ -645,7 +645,7 @@ FUNCTION caml_c_call_stack_args
       pointers via c_stack_link->sp and the in-memory back chain (see
       caml_try_realloc_stack in fiber.c), so it never walks the C-stack region
       where these arguments are pushed. */
-   /* SP is a parameter frame; its back chain points to the actual function
+   /* SP is a parameter frame whose back chain points to the actual function
       frame.  Skip the parameter frame so the frame walker does not see it
       twice. */
         ld      C_CALL_TMP, 0(SP)       /* actual function frame */
@@ -704,7 +704,8 @@ FUNCTION caml_c_call_stack_args
 #ifdef ASM_CFI_SUPPORTED
    /* Undo the CFA override above (SP is back at the c_stack_link, so restore
       the CFA = *(SP + Cstack_sp_offset) rule set by SWITCH_OCAML_TO_C).
-      Only needed with frame pointers; otherwise that rule was never changed. */
+      Only needed with frame pointers.  Without them that rule was never
+      changed. */
         .cfi_escape DW_CFA_def_cfa_expression, 3, \
            DW_OP_breg + DW_REG_sp, Cstack_sp_offset, DW_OP_deref
 #endif
@@ -958,10 +959,10 @@ FUNCTION caml_start_program
 
 #ifdef ASM_CFI_SUPPORTED
         CFI_REMEMBER_STATE
-        /* DWARF expression: CFA = *(SP + RESERVED_STACK + TRAP_SIZE).
-           At this offset we stored the C caller's SP (= CFA) before
-           entering OCaml.  We use breg1(0) + plus_uconst because the
-           offset (80) exceeds the single-byte SLEB128 range of breg. */
+        /* CFA = *(SP + RESERVED_STACK + TRAP_SIZE), where the C caller's SP
+           was stored before entering OCaml.  The offset goes in a ULEB128
+           (plus_uconst) rather than breg's SLEB128, which with frame pointers
+           would be 80 and so would need two bytes. */
         .cfi_escape DW_CFA_def_cfa_expression, 5,                          \
             DW_OP_breg + DW_REG_sp, 0,                                     \
             DW_OP_plus_uconst, (RESERVED_STACK + TRAP_SIZE),               \
@@ -970,10 +971,10 @@ FUNCTION caml_start_program
 #endif
     /* Call the OCaml code (address in START_PRG_ARG) */
         mtctr   START_PRG_ARG
-    /* Pre-initialize the LR save area at SP+16 with the return address.
-       This ensures the unwinder can find LR even if the first OCaml function
-       doesn't save it (when fun_frame_required = false). The address stored
-       is .Lcaml_retaddr + 4 (the instruction after bctrl). */
+    /* Pre-initialize the LR save area at SP+16 with the return address, so
+       the runtime's stack walk can find LR even if the first OCaml function
+       does not save it (when fun_frame_required = false).  The address
+       stored is .Lcaml_retaddr + 4, the instruction after bctrl. */
         INIT_LR_SAVE .Lcaml_retaddr, .Linit_lr_save
 
 .Lcaml_retaddr:
@@ -1276,10 +1277,8 @@ FUNCTION caml_reperform
         ld      7, Handler_parent(TMP) /* r7 := cont_head */
         std     5, Handler_parent(TMP) /* parent(cont_tail) := current_stack */
         addi    6, 5, 1 /* r6 := Val_ptr(current_stack) */
-    /* Need to update the oldest saved frame pointer here as the execution of
-       the handler may have caused the current fiber stack to reallocate.
-       Save LR first so the return address at SP+16 is valid for
-       frame walking. */
+    /* The handler may have reallocated the fiber stack, so refresh the
+       back chain at its bottom. */
         UPDATE_BASE_POINTER TMP
         b       .Ldo_perform
         CFI_ENDPROC
@@ -1324,11 +1323,8 @@ FUNCTION caml_resume
         ld      7, Stack_handler(3)
         ld      8, Caml_state(current_stack)
         std     8, Handler_parent(7)
-    /* Point cont_tail's back chain (bottom of the fiber stack; r7 =
-       Stack_handler(cont_tail)) at the current frame so a walker goes through
-       the effect handler.  ENTER_FUNCTION must run first: on POWER a frame's
-       return address is at back_chain+16, and the fiber's back chain will
-       point at handler_SP, so handler_SP+16 needs a valid return address. */
+    /* Point cont_tail's back chain (r7 = its stack_handler) at this frame,
+       so a walker passes through the effect handler. */
         UPDATE_BASE_POINTER 7
     /* Switch stacks and run code */
         SWITCH_OCAML_STACKS 8, 6
@@ -1368,10 +1364,10 @@ FUNCTION caml_runstack
         ENTER_FUNCTION
     /*  save old stack pointer and exception handler */
         ld      8, Caml_state(current_stack) /* r8 := old stack */
-    /* Stack_sp records caml_runstack's entry frame, where ENTER_FUNCTION saved
-       LR; LEAVE_FUNCTION recovers it from Stack_sp + 16.  The TOC is saved
-       just above that, so that it survives a reallocation of this stack:
-       caml_try_realloc_stack copies only [sp, Stack_high). */
+    /* Stack_sp records caml_runstack's entry frame, where ENTER_FUNCTION
+       saved LR.  LEAVE_FUNCTION recovers it from Stack_sp + 16.  The TOC is
+       saved just above that, so that it survives a reallocation of this
+       stack: caml_try_realloc_stack copies only [sp, Stack_high). */
         std     SP, Stack_sp(8)
         std     2, TOC_SAVE_PARENT(SP)
 #ifdef WITH_FRAME_POINTERS
@@ -1420,10 +1416,10 @@ FUNCTION caml_runstack
             DW_OP_plus_uconst, Stack_sp_offset, DW_OP_deref
         CFI_OFFSET(DW_REG_lr, LR_SAVE)  /* LR saved at CFA + LR_SAVE */
 #endif
-    /* Pre-initialize the LR save area at SP+16 with the return address.
-       This ensures the GC can find LR even if the first OCaml function
-       doesn't save it (when fun_frame_required = false). The address stored
-       is .Lframe_runstack + 4 (the instruction after bctrl). */
+    /* Pre-initialize the LR save area at SP+16 with the return address, so
+       the runtime's stack walk can find LR even if the first OCaml function
+       does not save it (when fun_frame_required = false).  The address
+       stored is .Lframe_runstack + 4, the instruction after bctrl. */
         INIT_LR_SAVE .Lframe_runstack, .Linit_runstack_lr
     /* Call the function on the new stack */
         mr      3, 5   /* argument */

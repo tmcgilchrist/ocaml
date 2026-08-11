@@ -776,19 +776,11 @@ let emit_instr env i =
           cfi_restore_state ()
         end
     | Lop(Istackoffset n) ->
-        (* The ELFv2 ABI reserves 32 bytes at the bottom of every stack frame,
-           and slot_offset places outgoing arguments at
-           SP + reserved_stack_space + n.  We include the reserved area in the
-           allocation so that outgoing arguments do not overflow into the
-           caller's frame.
-
-           With frame pointers, allocation uses stdu to keep a valid back chain
-           (followed by the frame-pointer walker and by caml_c_call_stack_args)
-           and copies LR into the new frame.  Without frame pointers nothing
-           reads that back chain, so a plain addi suffices.
-
-           When deallocating (n < 0), we use addi since we're popping back to
-           a frame that already has a valid back chain. *)
+        (* [slot_offset] places outgoing arguments at SP + reserved_stack_space
+           + n, so the allocation must cover the ABI's reserved area too,
+           otherwise they overflow into the caller's frame.  With frame
+           pointers, [stdu] keeps the back chain valid and LR is copied into
+           the new frame.  Without them [addi] suffices. *)
         if n > 0 then begin
           let alloc = n + reserved_stack_space in
           if fp then begin
