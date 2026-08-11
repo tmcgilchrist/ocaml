@@ -535,6 +535,9 @@ Working version
   callback whose lost_words parameter is uint64_t, the OCaml API is unchanged.
   (Tim McGilchrist, review by ????)
 
+- #15000: Make ring buffer file size a size_t to avoid integer overflow
+  (Tim McGilchrist, review by ????)
+
 OCaml 5.5.1
 -----------
 
