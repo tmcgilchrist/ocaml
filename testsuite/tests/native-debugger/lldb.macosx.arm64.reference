@@ -11,8 +11,8 @@ Breakpoint created for regex caml_start_program.
 Breakpoint created for regex caml_program.
 (lldb) create camlMeander[.$]c_to_ocaml*
 Breakpoint created for regex camlMeander[.$]c_to_ocaml*.
-(lldb) create ocaml_to_c
-Breakpoint created for regex ocaml_to_c.
+(lldb) create ^ocaml_to_c$
+Breakpoint created for regex ^ocaml_to_c$.
 (lldb) create camlMeander[.$]on_fiber*
 Breakpoint created for regex camlMeander[.$]on_fiber*.
 (lldb) create camlMeander[.$]on_perform*
@@ -117,7 +117,6 @@ Process XXXX stopped
 Target 0: (meander) stopped.
 (lldb) backtrace
 frame X: meander`camlMeander$on_perform
-frame X: meander`camlMeander$performer
 frame X: meander`caml_runstack
 frame X: meander`camlMeander$entry
 frame X: meander`caml_program

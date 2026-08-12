@@ -4,6 +4,8 @@ Breakpoint 3 at 0x00000000000000: file meander_c.c, line XXX.
 Breakpoint 4 at 0x00000000000000: file meander.ml, line XXX.
 Breakpoint 5 at 0x00000000000000: file meander.ml, line XXX.
 Breakpoint 6 at 0x00000000000000: file meander.ml, line XXX.
+Breakpoint 7 at 0x00000000000000: file meander_c.c, line XXX.
+Breakpoint 8 at 0x00000000000000: file meander_c.c, line XXX.
 Breakpoint 1, <signal handler called>
 frame X: caml_start_program
 frame X: caml_startup_common
@@ -64,7 +66,6 @@ frame X: main
 Breakpoint 6, camlMeander.on_perform () at meander.ml:35
 35	  Sys.opaque_identity 99
 frame X: camlMeander.on_perform
-frame X: camlMeander.performer
 frame X: caml_runstack
 frame X: camlMeander.entry
 frame X: caml_program
@@ -74,4 +75,21 @@ frame X: caml_startup_common
 frame X: caml_startup
 frame X: caml_main
 frame X: main
+Breakpoint 7, ocaml_to_c_many (a1=3, a2=5, a3=7, a4=9, a5=11, a6=13, a7=15, a8=17, a9=19, a10=21, a11=23, a12=25) at meander_c.c:XX
+15	    return Val_long(Long_val(a1) + Long_val(a2) + Long_val(a3) + Long_val(a4)
+frame X: ocaml_to_c_many
+frame X: caml_c_call_copy_stack_args
+frame X: caml_c_call_stack_args
+frame X: camlMeander.entry
+frame X: caml_program
+frame X: caml_start_program
+frame X: caml_startup_common
+frame X: caml_startup_common
+frame X: caml_startup
+frame X: caml_main
+frame X: main
+Breakpoint 8, ocaml_to_c_noalloc (unit=1) at meander_c.c:XX
+32	    return Val_long(7);
+frame X: ocaml_to_c_noalloc
+frame X: camlMeander.entry
 [Inferior 1 (process XXXX) exited normally]

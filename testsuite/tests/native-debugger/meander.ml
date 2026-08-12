@@ -49,3 +49,16 @@ let () =
         | _ -> None) }
   in
   assert (result = 99)
+
+(* Test caml_c_call_stack_args: C call with arguments passed on the stack *)
+external ocaml_to_c_many
+         : int -> int -> int -> int -> int -> int ->
+           int -> int -> int -> int -> int -> int -> int
+         = "ocaml_to_c_many_byte" "ocaml_to_c_many"
+
+let () = assert (ocaml_to_c_many 1 2 3 4 5 6 7 8 9 10 11 12 = 78)
+
+(* Test the inlined [@@noalloc] call sequence, which does not use a stub *)
+external ocaml_to_c_noalloc : unit -> int = "ocaml_to_c_noalloc" [@@noalloc]
+
+let () = assert (ocaml_to_c_noalloc () = 7)
