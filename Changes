@@ -529,6 +529,12 @@ Working version
   module are injective and contractive
   (Jeremy Yallop, review by Jacques Garrigue)
 
+* #XXXXX: Fix truncation of the lost event count in runtime_events_consumer.c
+  The count is a difference of two uint64_t ring positions but was passed to
+  the callback as an int. caml_runtime_events_set_lost_events now takes a
+  callback whose lost_words parameter is uint64_t, the OCaml API is unchanged.
+  (Tim McGilchrist, review by ????)
+
 OCaml 5.5.1
 -----------
 
