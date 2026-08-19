@@ -258,8 +258,9 @@ static void runtime_events_create_from_stw_single(void) {
                   T("%ld.events"), pid);
     }
 
-    /* Computed in 64 bits: max_domains * ring_size_bytes passes 4GB at
-       ordinary settings, which overflows a 32-bit size_t. */
+    /* Computed in 64 bits: max_domains * ring_size_bytes can exceed the range
+       of a 32-bit size_t at large OCAMLRUNPARAM e or d settings, so the result
+       is checked before it is narrowed. */
     uint64_t ring_total_size =
         (uint64_t)RUNTIME_EVENTS_MAX_CUSTOM_EVENTS *
           sizeof(struct runtime_events_custom_event) +
@@ -270,7 +271,7 @@ static void runtime_events_create_from_stw_single(void) {
 
     if (ring_total_size > SIZE_MAX) {
       caml_fatal_error("Ring buffer of %" PRIu64 " bytes exceeds the address "
-                       "space; reduce OCAMLRUNPARAM e or d", ring_total_size);
+                       "space, reduce OCAMLRUNPARAM e or d", ring_total_size);
     }
 
     current_ring_total_size = (size_t)ring_total_size;
