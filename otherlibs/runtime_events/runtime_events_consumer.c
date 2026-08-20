@@ -509,7 +509,14 @@ caml_runtime_events_read_poll(struct caml_runtime_events_cursor *cursor,
         /* The header may have been overwritten by the writer wrapping around
            between the ring_head check above and the read of the header, in
            which case it is not a header at all. Re-check before reporting
-           corruption, so that an overwrite is reported as lost events. */
+           corruption, so that an overwrite is reported as lost events.
+
+           The fence orders the header read before this one. Without it the
+           plain load of the header may be sunk past the acquire load, which
+           samples ring_head too early and reports a valid overwrite as
+           corruption. */
+        atomic_thread_fence(memory_order_seq_cst);
+
         ring_head =
           atomic_load_acquire(&runtime_events_buffer_header->ring_head);
 
