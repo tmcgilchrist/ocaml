@@ -980,6 +980,8 @@ and case i ppf {pc_lhs; pc_guards; pc_rhs} =
 and guard i ppf = function
   | Pguard_when g ->
       line i ppf "<when>\n"; expression (i+1) ppf g
+  | Pguard_with (p, g) ->
+      line i ppf "<with>\n"; pattern (i+1) ppf p; expression (i+1) ppf g
 
 and value_binding i ppf x =
   line i ppf "<def>\n";

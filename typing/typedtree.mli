@@ -314,6 +314,7 @@ and cont_desc =
 
 and guard =
   | Tguard_when of expression  (** [when E] *)
+  | Tguard_with of pattern * expression  (** [with P = E] *)
 
 and 'k case =
     {

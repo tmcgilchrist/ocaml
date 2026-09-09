@@ -873,6 +873,7 @@ let value_bindings sub (rec_flag, list) =
 
 let guard sub = function
   | Tguard_when e -> Tguard_when (sub.expr sub e)
+  | Tguard_with (p, e) -> Tguard_with (sub.pat sub p, sub.expr sub e)
 
 let case
   : type k . mapper -> k case -> k case

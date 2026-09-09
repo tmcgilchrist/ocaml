@@ -165,6 +165,7 @@ and cont_desc =
 
 and guard =
   | Tguard_when of expression
+  | Tguard_with of pattern * expression
 
 and 'k case =
     {
@@ -931,9 +932,11 @@ let split_pattern pat =
 
 let guard_loc = function
   | Tguard_when e -> e.exp_loc
+  | Tguard_with (p, e) -> { p.pat_loc with loc_end = e.exp_loc.loc_end }
 
 let guard_exp = function
   | Tguard_when e -> e
+  | Tguard_with (_, e) -> e
 
 let map_apply_arg f = function
   | Arg arg -> Arg (f arg)

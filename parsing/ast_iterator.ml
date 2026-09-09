@@ -763,6 +763,7 @@ let default_iterator =
       (fun this g ->
          match g with
          | Pguard_when e -> this.expr this e
+         | Pguard_with (p, e) -> this.pat this p; this.expr this e
       );
 
     location = (fun _this _l -> ());

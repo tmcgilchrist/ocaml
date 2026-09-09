@@ -303,6 +303,7 @@ and add_case bv {pc_lhs; pc_guards; pc_rhs} =
 
 and add_guard bv = function
   | Pguard_when g -> add_expr bv g; bv
+  | Pguard_with (p, g) -> add_expr bv g; add_pattern bv p
 
 and add_bindings recf bv pel =
   let bv' = List.fold_left (fun bv x -> add_pattern bv x.pvb_pat) bv pel in

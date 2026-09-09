@@ -3987,9 +3987,11 @@ type failer_kind =
   | Raise_match_failure
   | Reraise_noloc of lambda
   | Reperform_noloc of lambda list
+  | Guard_failure of lambda
 
 let failure_handler ~scopes loc ~failer () =
   match failer with
+  | Guard_failure failure -> failure
   | Reperform_noloc reperform_lst ->
     Lprim (Preperform, reperform_lst, Loc_unknown)
   | Reraise_noloc exn_lam ->
@@ -4094,6 +4096,10 @@ let for_trywith ~scopes loc param pat_act_list =
 let for_handler ~scopes loc param cont pat_act_list =
   compile_matching ~scopes loc
     ~failer:(Reperform_noloc [param; cont])
+    None param pat_act_list Partial
+
+let for_guard ~scopes loc ~failure param pat_act_list =
+  compile_matching ~scopes loc ~failer:(Guard_failure failure)
     None param pat_act_list Partial
 
 let simple_for_let ~scopes loc param pat body =

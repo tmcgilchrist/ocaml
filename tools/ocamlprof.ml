@@ -151,6 +151,7 @@ type case =
 
 let guard_exp = function
   | Pguard_when e -> e
+  | Pguard_with (_, e) -> e
 
 let case { pc_rhs; pc_guards } = { rhs = pc_rhs; guards = pc_guards }
 

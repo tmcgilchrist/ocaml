@@ -703,8 +703,14 @@ let reset_raise_count () =
 (* Anticipated staticraise, for guards *)
 let staticfail = Lstaticraise (0,[])
 
+(* A guarded action fails by raising [staticfail]; the pattern-match
+   compiler then patches that raise with the code for the cases that
+   remain to be tried. [when] guards produce a conditional, [with]
+   guards a static handler around the match on the guard scrutinee (see
+   [Matching.for_guard]). *)
 let rec is_guarded = function
   | Lifthenelse(_cond, _body, Lstaticraise (0,[])) -> true
+  | Lstaticcatch(_body, _ids, Lstaticraise (0,[])) -> true
   | Llet(_str, _k, _id, _lam, body) -> is_guarded body
   | Levent(lam, _ev) -> is_guarded lam
   | _ -> false
@@ -712,6 +718,8 @@ let rec is_guarded = function
 let rec patch_guarded patch = function
   | Lifthenelse (cond, body, Lstaticraise (0,[])) ->
       Lifthenelse (cond, body, patch)
+  | Lstaticcatch (body, ids, Lstaticraise (0,[])) ->
+      Lstaticcatch (body, ids, patch)
   | Llet(str, k, id, lam, body) ->
       Llet (str, k, id, lam, patch_guarded patch body)
   | Levent(lam, ev) ->

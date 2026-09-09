@@ -582,19 +582,41 @@ and transl_list_with_shape ~scopes expr_list =
   in
   List.split (List.map transl_with_shape expr_list)
 
+(* The guards of a case are evaluated from left to right; the case is
+   selected only if all of them succeed. Failure of the case as a whole is
+   signalled by [staticfail], which the pattern-match compiler patches with
+   the code for the cases that remain to be tried (see
+   [Lambda.patch_guarded]).
+
+   As [staticfail] can only be patched in one place, guards jump to a
+   common exit when there is more than one of them. A lone guard fails in
+   a single place, so it can use [staticfail] directly; this keeps the
+   code generated for the common case of a single [when] guard unchanged. *)
 and transl_guards ~scopes guards rhs =
   let body = event_before ~scopes rhs (transl_exp ~scopes rhs) in
-  List.fold_right (transl_guard ~scopes) guards body
+  match guards with
+  | [] -> body
+  | [ guard ] -> transl_guard ~scopes ~failure:staticfail guard body
+  | _ :: _ :: _ ->
+      let fail = next_raise_count () in
+      let guarded =
+        List.fold_right
+          (transl_guard ~scopes ~failure:(Lstaticraise (fail, [])))
+          guards body
+      in
+      Lstaticcatch (guarded, (fail, []), staticfail)
 
-(* [transl_guard g body] evaluates [g] and runs [body] if it succeeds.
-   Failure of the guard is signalled by [staticfail], which the pattern-match
-   compiler patches with the code for the remaining cases; see
-   [Lambda.patch_guarded]. *)
-and transl_guard ~scopes guard body =
+(* [transl_guard ~failure g body] evaluates [g], runs [body] if it
+   succeeds and [failure] if it does not. *)
+and transl_guard ~scopes ~failure guard body =
   match guard with
   | Tguard_when cond ->
       event_before ~scopes cond
-        (Lifthenelse(transl_exp ~scopes cond, body, staticfail))
+        (Lifthenelse(transl_exp ~scopes cond, body, failure))
+  | Tguard_with (pat, scrutinee) ->
+      event_before ~scopes scrutinee
+        (Matching.for_guard ~scopes scrutinee.exp_loc ~failure
+           (transl_exp ~scopes scrutinee) [ (pat, body) ])
 
 and transl_cont cont c_cont body =
   match cont, c_cont with

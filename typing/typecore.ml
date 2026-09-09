@@ -98,6 +98,7 @@ type existential_restriction =
   | In_class_args (** or in class arguments *)
   | In_class_def  (** or in [class c = let ... in ...] *)
   | In_self_pattern (** or in self pattern *)
+  | In_with_guard (** or in the pattern of a [with] guard *)
 
 type existential_binding =
   | Bind_already_bound
@@ -2574,11 +2575,14 @@ let add_module_variables env module_variables =
 let type_pat tps category ?no_existentials penv =
   type_pat tps category ~no_existentials ~penv
 
-let type_pattern category ~lev env spat expected_ty ?cont allow_modules =
+let type_pattern category ~lev ?no_existentials env spat expected_ty ?cont
+      allow_modules =
   let tps = create_type_pat_state ?cont allow_modules in
   let new_penv = Pattern_env.make env
       ~equations_scope:lev ~in_counterexample:false in
-  let pat = type_pat tps category new_penv spat expected_ty in
+  let pat =
+    type_pat tps category ?no_existentials new_penv spat expected_ty
+  in
   let { tps_pattern_variables = pvs;
         tps_module_variables = mvs;
         tps_pattern_force = pattern_forces;
@@ -3680,6 +3684,7 @@ and is_nonexpansive_opt = function
 
 and is_nonexpansive_guard = function
   | Tguard_when e -> is_nonexpansive e
+  | Tguard_with (_, e) -> is_nonexpansive e
 
 and is_nonexpansive_arg = function
   | Omitted () -> true
@@ -7329,6 +7334,28 @@ and map_half_typed_cases
   (* Ensure that existential types do not escape *)
   ~post:(fun ty_res' -> unify_exp_types loc env ty_res' (newvar ()))
 
+(* Typing of the [with P = E] guard of a match case: [E] is typed in
+   [env] and its type is used to type the pattern [P]. The pattern
+   variables are returned so that the caller can bring them into scope
+   for the remaining guards and for the right-hand side of the case.
+
+   Unlike the pattern of the case itself, [P] is not required to be
+   exhaustive: the guard simply fails when the value of [E] does not
+   match it. Existential types are rejected, as the scope of the
+   equations they would introduce is not tracked here. *)
+and type_with_guard env spat sexp =
+  let exp = type_exp env sexp in
+  let (pat, _, forces, pvs, _) =
+    type_pattern Value ~lev:(get_current_level ())
+      ~no_existentials:In_with_guard env spat exp.exp_type Modules_rejected
+  in
+  List.iter (fun f -> f ()) forces;
+  if has_variants pat then begin
+    Parmatch.pressure_variants env [pat];
+    finalize_variants pat
+  end;
+  (exp, pat, pvs)
+
 (* Typing of match cases *)
 and type_cases
     : type k . k pattern_category -> _ -> _ -> _ -> ?conts:_ ->
@@ -7353,17 +7380,38 @@ and type_cases
            as the extent of the continuation is yet to be determined. We
            make the continuation inaccessible by typing the guards using
            the environment `when_env' which does not bind the
-           continuation variable. *)
-        let type_guard = function
-          | Pguard_when scond ->
-              Tguard_when
-                (type_expect when_env scond
-                   (mk_expected ~explanation:When_guard Predef.type_bool))
+           continuation variable.
+
+           The pattern of a `with' guard binds variables in the guards
+           that follow it and in the right-hand side, so both
+           environments are extended as we walk through the guards. *)
+        let rec type_guards when_env ext_env = function
+          | [] ->
+              let exp =
+                type_expect ext_env pc_rhs
+                  (mk_expected ?explanation ty_expected)
+              in
+              [], exp
+          | Pguard_when scond :: rest ->
+              let cond =
+                type_expect when_env scond
+                  (mk_expected ~explanation:When_guard Predef.type_bool)
+              in
+              let guards, exp = type_guards when_env ext_env rest in
+              Tguard_when cond :: guards, exp
+          | Pguard_with (spat, sexp) :: rest ->
+              let scrutinee, gpat, pvs = type_with_guard when_env spat sexp in
+              let add env =
+                add_pattern_variables env pvs
+                  ~check:(fun s -> Warnings.Unused_var_strict s)
+                  ~check_as:(fun s -> Warnings.Unused_var s)
+              in
+              let guards, exp =
+                type_guards (add when_env) (add ext_env) rest
+              in
+              Tguard_with (gpat, scrutinee) :: guards, exp
         in
-        let guards = List.map type_guard pc_guards in
-        let exp =
-          type_expect ext_env pc_rhs (mk_expected ?explanation ty_expected)
-        in
+        let guards, exp = type_guards when_env ext_env pc_guards in
         {
           c_lhs = pat;
           c_cont = cont;
@@ -8568,6 +8616,9 @@ let report_error ~loc env =
              class definition"
         | In_self_pattern ->
             dprintf "Existential types are not allowed in self patterns"
+        | In_with_guard ->
+            dprintf "Existential types are not allowed in %a guards"
+              Style.inline_code "with"
         | At_toplevel ->
             dprintf "Existential types are not allowed in toplevel bindings"
         | In_group ->

@@ -666,6 +666,7 @@ let value_bindings sub (_, list) = List.iter (sub.value_binding sub) list
 
 let guard sub = function
   | Tguard_when e -> sub.expr sub e
+  | Tguard_with (p, e) -> sub.pat sub p; sub.expr sub e
 
 let case sub {c_lhs; c_guards; c_rhs; c_cont} =
   sub.pat sub c_lhs;

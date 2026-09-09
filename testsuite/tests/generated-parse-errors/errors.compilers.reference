@@ -452,19 +452,19 @@ File "implementation: FUNCTION PERCENT AND ASSERT", line 1, characters 15-21:
 Error: Syntax error
 File "implementation: FUNCTION UNDERSCORE AS WITH", line 1, characters 14-18:
 Error: Syntax error: identifier expected.
-File "implementation: FUNCTION UNDERSCORE BAR UNDERSCORE WITH", line 1, characters 15-19:
+File "implementation: FUNCTION UNDERSCORE BAR UNDERSCORE WITH", line 1, characters 0-2:
 Error: Syntax error
 File "implementation: FUNCTION UNDERSCORE BAR WITH", line 1, characters 13-17:
 Error: Syntax error: pattern expected.
-File "implementation: FUNCTION UNDERSCORE COLONCOLON UNDERSCORE WITH", line 1, characters 16-20:
+File "implementation: FUNCTION UNDERSCORE COLONCOLON UNDERSCORE WITH", line 1, characters 0-2:
 Error: Syntax error
 File "implementation: FUNCTION UNDERSCORE COLONCOLON WITH", line 1, characters 14-18:
 Error: Syntax error: pattern expected.
-File "implementation: FUNCTION UNDERSCORE COMMA CHAR COMMA UNDERSCORE WITH", line 1, characters 21-25:
+File "implementation: FUNCTION UNDERSCORE COMMA CHAR COMMA UNDERSCORE WITH", line 1, characters 0-2:
 Error: Syntax error
 File "implementation: FUNCTION UNDERSCORE COMMA CHAR COMMA WITH", line 1, characters 19-23:
 Error: Syntax error
-File "implementation: FUNCTION UNDERSCORE COMMA UNDERSCORE WITH", line 1, characters 15-19:
+File "implementation: FUNCTION UNDERSCORE COMMA UNDERSCORE WITH", line 1, characters 0-2:
 Error: Syntax error
 File "implementation: FUNCTION UNDERSCORE COMMA WITH", line 1, characters 13-17:
 Error: Syntax error: pattern expected.
@@ -476,11 +476,11 @@ File "implementation: FUNCTION UNDERSCORE MINUSGREATER WITH", line 1, characters
 Error: Syntax error
 File "implementation: FUNCTION UNDERSCORE WHEN UIDENT MINUSGREATER WITH", line 1, characters 26-30:
 Error: Syntax error
-File "implementation: FUNCTION UNDERSCORE WHEN UIDENT WITH", line 1, characters 23-27:
+File "implementation: FUNCTION UNDERSCORE WHEN UIDENT WITH", line 1, characters 0-2:
 Error: Syntax error
 File "implementation: FUNCTION UNDERSCORE WHEN WITH", line 1, characters 16-20:
 Error: Syntax error
-File "implementation: FUNCTION UNDERSCORE WITH", line 1, characters 11-15:
+File "implementation: FUNCTION UNDERSCORE WITH", line 1, characters 0-2:
 Error: Syntax error
 File "implementation: FUNCTION WITH", line 1, characters 9-13:
 Error: Syntax error

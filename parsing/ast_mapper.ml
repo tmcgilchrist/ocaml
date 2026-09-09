@@ -867,6 +867,8 @@ let default_mapper =
       (fun this g ->
          match g with
          | Pguard_when e -> Pguard_when (this.expr this e)
+         | Pguard_with (p, e) ->
+             Pguard_with (this.pat this p, this.expr this e)
       );
 
 

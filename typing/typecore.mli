@@ -103,6 +103,7 @@ type existential_restriction =
   | In_class_args (** or in class arguments [class c (...) = ...] *)
   | In_class_def (** or in [class c = let ... in ...] *)
   | In_self_pattern (** or in self pattern *)
+  | In_with_guard (** or in the pattern of a [with] guard *)
 
 val type_binding:
         Env.t -> rec_flag ->

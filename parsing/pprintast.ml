@@ -1876,6 +1876,8 @@ and extension_constructor ctxt f x =
 
 and guard ctxt f = function
   | Pguard_when g -> pp f "@;when@;%a" (expression ctxt) g
+  | Pguard_with (p, g) ->
+      pp f "@;with@;%a@;=@;%a" (pattern ctxt) p (expression ctxt) g
 
 and case_list ctxt f l : unit =
   let aux f {pc_lhs; pc_guards; pc_rhs} =

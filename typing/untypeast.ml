@@ -386,6 +386,7 @@ let exp_extra sub (extra, loc, attrs) sexp =
 
 let guard sub = function
   | Tguard_when e -> Pguard_when (sub.expr sub e)
+  | Tguard_with (p, e) -> Pguard_with (sub.pat sub p, sub.expr sub e)
 
 let case : type k . mapper -> k case -> _ = fun sub {c_lhs; c_guards; c_rhs} ->
   {

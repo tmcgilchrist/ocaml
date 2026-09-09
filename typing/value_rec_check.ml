@@ -1285,6 +1285,7 @@ and value_bindings : rec_flag -> Typedtree.value_binding list -> bind_judg =
 *)
 and guard : Typedtree.guard -> term_judg = function
   | Tguard_when e -> expression e
+  | Tguard_with (_, e) -> expression e
 
 and case
     : 'k . 'k Typedtree.case -> mode -> Env.t * mode
@@ -1299,8 +1300,15 @@ and case
         List.map (fun g -> guard g << Dereference) c_guards
         @ [ expression c_rhs ]
       ) in
+    (* The patterns of the [with] guards bind variables in the guards
+       that follow them and in the right-hand side. *)
+    let remove_guard_pats env =
+      List.fold_left (fun env g -> match g with
+        | Tguard_when _ -> env
+        | Tguard_with (p, _) -> remove_pat p env) env c_guards
+    in
     (fun m ->
-       let env = judg m in
+       let env = remove_guard_pats (judg m) in
        (remove_pat c_lhs env), Mode.compose m (pattern c_lhs env))
 
 (* p : m -| G
