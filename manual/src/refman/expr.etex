@@ -82,8 +82,12 @@ argument:
 ;
 %\end{syntax} \begin{syntax}
 pattern-matching:
-    [ '|' ] pattern ['when' expr] '->' expr
-    { '|' pattern ['when' expr] '->' expr }
+    [ '|' ] pattern { guard } '->' expr
+    { '|' pattern { guard } '->' expr }
+;
+guard:
+    'when' expr
+  | 'with' pattern '=' expr  %since 5.6
 ;
 let-binding:
     pattern '=' expr
@@ -462,6 +466,42 @@ let rec repeat f = function
   | n when n > 0 -> f (); repeat f (n - 1)
   | _ -> raise (Invalid_argument "repeat");;
 \end{caml_example}
+
+\subsubsection*{sss:with-guards}{"with" guards in pattern-matchings}
+\ikwd{with\@\texttt{with}}
+
+A case can also be guarded by a @"with"@ guard, written
+@"with" pattern "=" expr@, which succeeds when the value of @expr@
+matches @pattern@ instead of when a condition evaluates to "true".
+The variables bound by @pattern@ are in scope in the guards that follow
+and in the right-hand side of the case. If the value of @expr@ does not
+match @pattern@, the guard fails and the matching is resumed against the
+following patterns, as for a @"when"@ guard that evaluates to "false".
+
+\begin{caml_example}{toplevel}
+type expr = Var of string | Const of int;;
+let eval env e =
+  match e with
+  | Var x with Some v = List.assoc_opt x env -> v
+  | Var x -> failwith ("Unbound variable " ^ x)
+  | Const v -> v;;
+eval ["a", 1] (Var "a");;
+\end{caml_example}
+
+A case may carry any number of guards of either kind; they are tried
+from left to right and the case is selected only if all of them succeed.
+
+\begin{caml_example}{toplevel}
+let nth_positive l n =
+  match n with
+  | n when n >= 0 with Some v = List.nth_opt l n when v > 0 -> Some v
+  | _ -> None;;
+nth_positive [0; 1; 2] 2, nth_positive [0; 1; 2] 0;;
+\end{caml_example}
+
+The pattern of a @"with"@ guard is not required to be exhaustive, and a
+case carrying a guard never contributes to the exhaustiveness of the
+whole matching. It may not bind modules or existential types.
 
 \subsubsection*{sss:expr-localdef}{Local definitions}
 

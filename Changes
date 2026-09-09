@@ -5,6 +5,14 @@ Working version
 
 ### Language features:
 
+- #NNNNN: add a `with` syntax for pattern guards. The case
+  `p with q = e -> body` is selected when the scrutinee matches `p` and the
+  value of `e` matches `q`; the variables bound by `q` are in scope in `body`.
+  When `e` does not match `q` the matching resumes with the following cases,
+  as for a `when` guard that evaluates to `false`. A case may carry any
+  number of `when` and `with` guards, tried from left to right.
+  (Tim McGilchrist, review by )
+
 - #13377, RFC 44: Primitive aliases
   (Nailen Matschke, review by Jeremy Yallop, Leo White, and Florian Angeletti)
 
@@ -432,6 +440,13 @@ Working version
   (Samuel Vivien, review by Gabriel Scherer)
 
 ### Internal/compiler-libs changes:
+
+- #NNNNN: * the guards of a match case are now represented as a list of
+  `Parsetree.guard` (resp. `Typedtree.guard`) values in the `pc_guards`
+  (resp. `c_guards`) field of a case, instead of an `expression option` in
+  the `pc_guard` (resp. `c_guard`) field. `Ast_helper.Exp.case` keeps its
+  `?guard` argument and gains a `?guards` one.
+  (Tim McGilchrist, review by )
 
 - #14241, #14824, #14945: Introduction of a typing recovery mechanism to
   collect more than one typing error, facilitating integration with editors
