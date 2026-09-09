@@ -991,14 +991,14 @@ and longident_x_pattern i ppf (li, _, p) =
 
 and case
     : type k . _ -> _ -> k case -> unit
-  = fun i ppf {c_lhs; c_guard; c_rhs} ->
+  = fun i ppf {c_lhs; c_guards; c_rhs} ->
   line i ppf "<case>\n";
   pattern (i+1) ppf c_lhs;
-  begin match c_guard with
-  | None -> ()
-  | Some g -> line (i+1) ppf "<when>\n"; expression (i + 2) ppf g
-  end;
+  List.iter (guard (i+1) ppf) c_guards;
   expression (i+1) ppf c_rhs;
+
+and guard i ppf = function
+  | Tguard_when g -> line i ppf "<when>\n"; expression (i+1) ppf g
 
 and value_binding rec_flag i ppf x =
   begin match rec_flag, x.vb_rec_kind with

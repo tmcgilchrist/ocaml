@@ -43,12 +43,14 @@ let bind_bindings scope bindings =
 
 let bind_cases l =
   List.iter
-    (fun {c_lhs; c_guard; c_rhs} ->
+    (fun {c_lhs; c_guards; c_rhs} ->
       let loc =
         let open Location in
-        match c_guard with
-        | None -> c_rhs.exp_loc
-        | Some g -> {c_rhs.exp_loc with loc_start=g.exp_loc.loc_start}
+        match c_guards with
+        | [] -> c_rhs.exp_loc
+        | g :: _ ->
+            let start = (guard_loc g).loc_start in
+            {c_rhs.exp_loc with loc_start=start}
       in
       bind_variables loc c_lhs
     )

@@ -199,7 +199,11 @@ module Exp:
     val struct_item: ?loc:loc -> ?attrs:attrs -> structure_item -> expression
       -> expression
 
-    val case: pattern -> ?guard:expression -> expression -> case
+    (** [case p ~guard ~guards e]: [~guard] is a convenience for
+        prepending a [Pguard_when] guard to [~guards]. *)
+    val case:
+      pattern -> ?guard:expression -> ?guards:guard list -> expression
+      -> case
     val binding_op: str -> pattern -> expression -> loc -> binding_op
   end
 

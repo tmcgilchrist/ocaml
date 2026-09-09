@@ -971,14 +971,15 @@ and longident_x_pattern i ppf (li, p) =
   line i ppf "%a\n" fmt_longident_loc li;
   pattern (i+1) ppf p;
 
-and case i ppf {pc_lhs; pc_guard; pc_rhs} =
+and case i ppf {pc_lhs; pc_guards; pc_rhs} =
   line i ppf "<case>\n";
   pattern (i+1) ppf pc_lhs;
-  begin match pc_guard with
-  | None -> ()
-  | Some g -> line (i+1) ppf "<when>\n"; expression (i + 2) ppf g
-  end;
+  List.iter (guard (i+1) ppf) pc_guards;
   expression (i+1) ppf pc_rhs;
+
+and guard i ppf = function
+  | Pguard_when g ->
+      line i ppf "<when>\n"; expression (i+1) ppf g
 
 and value_binding i ppf x =
   line i ppf "<def>\n";

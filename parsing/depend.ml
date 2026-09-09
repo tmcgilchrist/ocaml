@@ -296,10 +296,13 @@ and add_constraint bv constraint_ =
 and add_cases bv cases =
   List.iter (add_case bv) cases
 
-and add_case bv {pc_lhs; pc_guard; pc_rhs} =
+and add_case bv {pc_lhs; pc_guards; pc_rhs} =
   let bv = add_pattern bv pc_lhs in
-  add_opt add_expr bv pc_guard;
+  let bv = List.fold_left add_guard bv pc_guards in
   add_expr bv pc_rhs
+
+and add_guard bv = function
+  | Pguard_when g -> add_expr bv g; bv
 
 and add_bindings recf bv pel =
   let bv' = List.fold_left (fun bv x -> add_pattern bv x.pvb_pat) bv pel in

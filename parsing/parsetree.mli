@@ -441,13 +441,20 @@ and expression_desc =
   | Pexp_extension of extension  (** [[%id]] *)
   | Pexp_unreachable  (** [.] *)
 
+and guard =
+  | Pguard_when of expression  (** [when E] *)
+(** Values of type {!guard} are the guards of a {!case}. A [when] guard
+    succeeds when its expression evaluates to [true]. *)
+
 and case =
     {
      pc_lhs: pattern;
-     pc_guard: expression option;
+     pc_guards: guard list;
      pc_rhs: expression;
    }
-(** Values of type {!case} represents [(P -> E)] or [(P when E0 -> E)] *)
+(** Values of type {!case} represents [(P -> E)] or [(P when E0 -> E)].
+    The guards are tried from left to right and the case is selected only
+    if all of them succeed. *)
 
 and letop =
   {

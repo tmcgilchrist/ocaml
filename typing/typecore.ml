@@ -514,7 +514,7 @@ type recarg =
 let mk_expected ?explanation ty = { ty; explanation; }
 
 let case lhs rhs =
-  {c_lhs = lhs; c_cont = None; c_guard = None; c_rhs = rhs}
+  {c_lhs = lhs; c_cont = None; c_guards = []; c_rhs = rhs}
 
 (* Typing of constants *)
 
@@ -3563,8 +3563,9 @@ let rec is_nonexpansive exp =
       in
       is_nonexpansive e &&
       List.for_all
-        (fun {c_lhs; c_guard; c_rhs} ->
-           is_nonexpansive_opt c_guard && is_nonexpansive c_rhs
+        (fun {c_lhs; c_guards; c_rhs} ->
+           List.for_all is_nonexpansive_guard c_guards
+           && is_nonexpansive c_rhs
            && not (contains_exception_pat c_lhs)
         ) cases
   | Texp_tuple el ->
@@ -3676,6 +3677,9 @@ and is_nonexpansive_mod mexp =
 and is_nonexpansive_opt = function
   | None -> true
   | Some e -> is_nonexpansive e
+
+and is_nonexpansive_guard = function
+  | Tguard_when e -> is_nonexpansive e
 
 and is_nonexpansive_arg = function
   | Omitted () -> true
@@ -7343,29 +7347,27 @@ and type_cases
   map_half_typed_cases ?conts category env ty_arg ty_res loc caselist
     ~check_if_total
     ~type_body:begin
-      fun { pc_guard; pc_rhs } pat ~when_env ~ext_env ~cont ~ty_expected
+      fun { pc_guards; pc_rhs } pat ~when_env ~ext_env ~cont ~ty_expected
         ~ty_infer ~contains_gadt:_ ->
-        let guard =
-          match pc_guard with
-          | None -> None
-          | Some scond ->
-            (* It is crucial that the continuation is not used in the
-               `when' expression as the extent of the continuation is
-               yet to be determined. We make the continuation
-               inaccessible by typing the `when' expression using the
-               environment `ext_env' which does not bind the
-               continuation variable. *)
-            Some
-              (type_expect when_env scond
-                (mk_expected ~explanation:When_guard Predef.type_bool))
+        (* It is crucial that the continuation is not used in the guards
+           as the extent of the continuation is yet to be determined. We
+           make the continuation inaccessible by typing the guards using
+           the environment `when_env' which does not bind the
+           continuation variable. *)
+        let type_guard = function
+          | Pguard_when scond ->
+              Tguard_when
+                (type_expect when_env scond
+                   (mk_expected ~explanation:When_guard Predef.type_bool))
         in
+        let guards = List.map type_guard pc_guards in
         let exp =
           type_expect ext_env pc_rhs (mk_expected ?explanation ty_expected)
         in
         {
           c_lhs = pat;
           c_cont = cont;
-          c_guard = guard;
+          c_guards = guards;
           c_rhs = {exp with exp_type = ty_infer}
         }
     end

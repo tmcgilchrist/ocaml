@@ -146,10 +146,13 @@ let final_rewrite add_function =
 
 type case =
   { rhs : expression;
-    guard : expression option;
+    guards : guard list;
   }
 
-let case { pc_rhs; pc_guard } = { rhs = pc_rhs; guard = pc_guard }
+let guard_exp = function
+  | Pguard_when e -> e
+
+let case { pc_rhs; pc_guards } = { rhs = pc_rhs; guards = pc_guards }
 
 let rec rewrite_patexp_list iflag l =
   rewrite_exp_list iflag (List.map (fun x -> x.pvb_expr) l)
@@ -162,10 +165,7 @@ and rewrite_case_body iflag rhs =
 and rewrite_cases iflag l =
   List.iter
     (fun pc ->
-      begin match pc.pc_guard with
-      | None -> ()
-      | Some g -> rewrite_exp iflag g
-      end;
+      List.iter (fun g -> rewrite_exp iflag (guard_exp g)) pc.pc_guards;
       rewrite_case_body iflag pc.pc_rhs
     )
     l
@@ -191,7 +191,7 @@ and rw_exp iflag sexp =
 
   | Pexp_function (_, _, Pfunction_body e) ->
     if !instr_fun then
-      rewrite_function iflag [{ rhs = e; guard = None }]
+      rewrite_function iflag [{ rhs = e; guards = [] }]
     else
       rewrite_exp iflag e
 
@@ -316,8 +316,8 @@ and rewrite_ifbody iflag ghost sifbody =
 and rewrite_annotate_exp_list l =
   List.iter
     (function
-     | {guard=Some scond; rhs=sbody} ->
-         insert_profile rw_exp scond;
+     | {guards = _ :: _ as guards; rhs=sbody} ->
+         List.iter (fun g -> insert_profile rw_exp (guard_exp g)) guards;
          rewrite_annotate_rhs sbody
      | {rhs={pexp_desc = Pexp_constraint(sbody, _)}} (* let f x : t = e *)
         -> rewrite_annotate_rhs sbody
@@ -331,7 +331,7 @@ and rewrite_annotate_rhs rhs =
   | _ -> insert_profile rw_exp rhs
 
 and rewrite_function iflag = function
-  | [{guard=None;
+  | [{guards=[];
       rhs={pexp_desc = (Pexp_function _)} as sexp}]
     ->
         rewrite_exp iflag sexp

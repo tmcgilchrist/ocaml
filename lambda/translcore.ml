@@ -582,13 +582,19 @@ and transl_list_with_shape ~scopes expr_list =
   in
   List.split (List.map transl_with_shape expr_list)
 
-and transl_guard ~scopes guard rhs =
-  let expr = event_before ~scopes rhs (transl_exp ~scopes rhs) in
+and transl_guards ~scopes guards rhs =
+  let body = event_before ~scopes rhs (transl_exp ~scopes rhs) in
+  List.fold_right (transl_guard ~scopes) guards body
+
+(* [transl_guard g body] evaluates [g] and runs [body] if it succeeds.
+   Failure of the guard is signalled by [staticfail], which the pattern-match
+   compiler patches with the code for the remaining cases; see
+   [Lambda.patch_guarded]. *)
+and transl_guard ~scopes guard body =
   match guard with
-  | None -> expr
-  | Some cond ->
+  | Tguard_when cond ->
       event_before ~scopes cond
-        (Lifthenelse(transl_exp ~scopes cond, expr, staticfail))
+        (Lifthenelse(transl_exp ~scopes cond, body, staticfail))
 
 and transl_cont cont c_cont body =
   match cont, c_cont with
@@ -598,18 +604,18 @@ and transl_cont cont c_cont body =
   | Some _, None -> body
   | None, Some _ -> assert false
 
-and transl_case ~scopes ?cont {c_lhs; c_cont; c_guard; c_rhs} =
-  (c_lhs, transl_cont cont c_cont (transl_guard ~scopes c_guard c_rhs))
+and transl_case ~scopes ?cont {c_lhs; c_cont; c_guards; c_rhs} =
+  (c_lhs, transl_cont cont c_cont (transl_guards ~scopes c_guards c_rhs))
 
 and transl_cases ~scopes ?cont cases =
   let cases =
     List.filter (fun c -> c.c_rhs.exp_desc <> Texp_unreachable) cases in
   List.map (transl_case ~scopes ?cont) cases
 
-and transl_case_try ~scopes {c_lhs; c_guard; c_rhs} =
+and transl_case_try ~scopes {c_lhs; c_guards; c_rhs} =
   iter_exn_names Translprim.add_exception_ident c_lhs;
   Misc.try_finally
-    (fun () -> c_lhs, transl_guard ~scopes c_guard c_rhs)
+    (fun () -> c_lhs, transl_guards ~scopes c_guards c_rhs)
     ~always:(fun () ->
         iter_exn_names Translprim.remove_exception_ident c_lhs)
 
@@ -622,7 +628,8 @@ and transl_tupled_cases ~scopes patl_expr_list =
   let patl_expr_list =
     List.filter (fun (_,_,e) -> e.exp_desc <> Texp_unreachable)
       patl_expr_list in
-  List.map (fun (patl, guard, expr) -> (patl, transl_guard ~scopes guard expr))
+  List.map
+    (fun (patl, guards, expr) -> (patl, transl_guards ~scopes guards expr))
     patl_expr_list
 
 and transl_apply ~scopes
@@ -756,7 +763,7 @@ and transl_tupled_function ~scopes loc return repr params body =
         Some (cases, partial)
     | [ { fp_kind = Tparam_pat pat; fp_partial } ], Tfunction_body body ->
         let case =
-          { c_lhs = pat; c_cont = None; c_guard = None; c_rhs = body }
+          { c_lhs = pat; c_cont = None; c_guards = []; c_rhs = body }
         in
         Some ([ case ], fp_partial)
     | _ -> None
@@ -769,8 +776,8 @@ and transl_tupled_function ~scopes loc return repr params body =
         let size = List.length pl in
         let pats_expr_list =
           List.map
-            (fun {c_lhs; c_guard; c_rhs} ->
-              (Matching.flatten_pattern size c_lhs, c_guard, c_rhs))
+            (fun {c_lhs; c_guards; c_rhs} ->
+              (Matching.flatten_pattern size c_lhs, c_guards, c_rhs))
             cases in
         let kinds =
           (* All the patterns might not share the same types. We must take the
@@ -1078,7 +1085,7 @@ and transl_atomic_loc ~scopes arg lbl =
 
 and transl_match ~scopes e arg pat_expr_list partial =
   let rewrite_case (val_cases, exn_cases, static_handlers as acc)
-        ({ c_lhs; c_guard; c_rhs } as case) =
+        ({ c_lhs; c_guards; c_rhs } as case) =
     if c_rhs.exp_desc = Texp_unreachable then acc else
     let val_pat, exn_pat = split_pattern c_lhs in
     match val_pat, exn_pat with
@@ -1092,7 +1099,7 @@ and transl_match ~scopes e arg pat_expr_list partial =
         let exn_case = transl_case_try ~scopes { case with c_lhs = pe } in
         val_cases, exn_case :: exn_cases, static_handlers
     | Some pv, Some pe ->
-        assert (c_guard = None);
+        assert (c_guards = []);
         let lbl  = next_raise_count () in
         let static_raise ids =
           Lstaticraise (lbl, List.map (fun id -> Lvar id) ids)

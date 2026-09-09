@@ -233,10 +233,15 @@ module Exp = struct
   let unreachable ?loc ?attrs () = mk ?loc ?attrs Pexp_unreachable
   let struct_item ?loc ?attrs si e = mk ?loc ?attrs (Pexp_struct_item (si, e))
 
-  let case lhs ?guard rhs =
+  let case lhs ?guard ?(guards = []) rhs =
+    let guards =
+      match guard with
+      | None -> guards
+      | Some guard -> Pguard_when guard :: guards
+    in
     {
      pc_lhs = lhs;
-     pc_guard = guard;
+     pc_guards = guards;
      pc_rhs = rhs;
     }
 

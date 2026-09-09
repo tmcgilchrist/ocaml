@@ -1874,11 +1874,14 @@ and extension_constructor ctxt f x =
         (with_loc constr) li
         (attributes ctxt) x.pext_attributes
 
+and guard ctxt f = function
+  | Pguard_when g -> pp f "@;when@;%a" (expression ctxt) g
+
 and case_list ctxt f l : unit =
-  let aux f {pc_lhs; pc_guard; pc_rhs} =
+  let aux f {pc_lhs; pc_guards; pc_rhs} =
     pp f "@;| @[<2>%a%a@;->@;%a@]"
-      (pattern ctxt) pc_lhs (option (expression ctxt) ~first:"@;when@;")
-      pc_guard (expression (under_pipe ctxt)) pc_rhs
+      (pattern ctxt) pc_lhs (list (guard ctxt) ~sep:"") pc_guards
+      (expression (under_pipe ctxt)) pc_rhs
   in
   list aux f l ~sep:""
 

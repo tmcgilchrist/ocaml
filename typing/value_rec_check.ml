@@ -1283,19 +1283,22 @@ and value_bindings : rec_flag -> Typedtree.value_binding list -> bind_judg =
    m' is the mode under which the scrutinee of p
    (the value matched against p) is placed.
 *)
+and guard : Typedtree.guard -> term_judg = function
+  | Tguard_when e -> expression e
+
 and case
     : 'k . 'k Typedtree.case -> mode -> Env.t * mode
-  = fun { Typedtree.c_lhs; c_guard; c_rhs } ->
+  = fun { Typedtree.c_lhs; c_guards; c_rhs } ->
     (*
        Ge |- e : m    Gg |- g : m[Dereference]
        G := Ge+Gg     p : mp -| G
        ----------------------------------------
        G - p; m[mp] |- (p (when g)? -> e) : m
     *)
-    let judg = join [
-        option expression c_guard << Dereference;
-        expression c_rhs;
-      ] in
+    let judg = join (
+        List.map (fun g -> guard g << Dereference) c_guards
+        @ [ expression c_rhs ]
+      ) in
     (fun m ->
        let env = judg m in
        (remove_pat c_lhs env), Mode.compose m (pattern c_lhs env))

@@ -384,10 +384,13 @@ let exp_extra sub (extra, loc, attrs) sexp =
   in
   Exp.mk ~loc ~attrs desc
 
-let case : type k . mapper -> k case -> _ = fun sub {c_lhs; c_guard; c_rhs} ->
+let guard sub = function
+  | Tguard_when e -> Pguard_when (sub.expr sub e)
+
+let case : type k . mapper -> k case -> _ = fun sub {c_lhs; c_guards; c_rhs} ->
   {
    pc_lhs = sub.pat sub c_lhs;
-   pc_guard = Option.map (sub.expr sub) c_guard;
+   pc_guards = List.map (guard sub) c_guards;
    pc_rhs = sub.expr sub c_rhs;
   }
 

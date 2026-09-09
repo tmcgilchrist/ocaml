@@ -27,15 +27,15 @@ type 'pattern parmatch_case =
     needs_refute : bool;
   }
 
-let typed_case { c_lhs; c_guard; c_rhs } =
+let typed_case { c_lhs; c_guards; c_rhs } =
   { pattern = c_lhs;
-    has_guard = Option.is_some c_guard;
+    has_guard = c_guards <> [];
     needs_refute = (c_rhs.exp_desc = Texp_unreachable);
   }
 
-let untyped_case { Parsetree.pc_lhs; pc_guard; pc_rhs } =
+let untyped_case { Parsetree.pc_lhs; pc_guards; pc_rhs } =
   { pattern = pc_lhs;
-    has_guard = Option.is_some pc_guard;
+    has_guard = pc_guards <> [];
     needs_refute = (pc_rhs.pexp_desc = Parsetree.Pexp_unreachable);
   }
 
@@ -2377,10 +2377,15 @@ let check_ambiguous_bindings =
   fun cases ->
     if is_active warn0 then
       let check_case ns case = match case with
-        | { c_lhs = p; c_guard=None ; _} -> [p]::ns
-        | { c_lhs = p; c_guard=Some g; _} ->
-            let all =
-              Ident.Set.inter (pattern_vars p) (all_rhs_idents g) in
+        | { c_lhs = p; c_guards=[] ; _} -> [p]::ns
+        | { c_lhs = p; c_guards; _} ->
+            let guard_idents =
+              List.fold_left
+                (fun acc g ->
+                   Ident.Set.union acc (all_rhs_idents (guard_exp g)))
+                Ident.Set.empty c_guards
+            in
+            let all = Ident.Set.inter (pattern_vars p) guard_idents in
             if not (Ident.Set.is_empty all) then begin
               match pattern_stable_vars ns p with
               | All -> ()

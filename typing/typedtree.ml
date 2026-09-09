@@ -163,11 +163,14 @@ and cont_desc =
     cont_uid: Uid.t
   }
 
+and guard =
+  | Tguard_when of expression
+
 and 'k case =
     {
      c_lhs: 'k general_pattern;
      c_cont: cont_desc option;
-     c_guard: expression option;
+     c_guards: guard list;
      c_rhs: expression;
     }
 
@@ -925,6 +928,12 @@ let split_pattern pat =
         combine_opts (into cpat) exns1 exns2
   in
   split_pattern pat
+
+let guard_loc = function
+  | Tguard_when e -> e.exp_loc
+
+let guard_exp = function
+  | Tguard_when e -> e
 
 let map_apply_arg f = function
   | Arg arg -> Arg (f arg)

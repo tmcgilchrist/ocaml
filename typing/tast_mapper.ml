@@ -871,12 +871,15 @@ let class_field sub x =
 let value_bindings sub (rec_flag, list) =
   (rec_flag, List.map (sub.value_binding sub) list)
 
+let guard sub = function
+  | Tguard_when e -> Tguard_when (sub.expr sub e)
+
 let case
   : type k . mapper -> k case -> k case
-  = fun sub {c_lhs; c_guard; c_rhs; c_cont} ->
+  = fun sub {c_lhs; c_guards; c_rhs; c_cont} ->
   {
     c_lhs = sub.pat sub c_lhs;
-    c_guard = Option.map (sub.expr sub) c_guard;
+    c_guards = List.map (guard sub) c_guards;
     c_rhs = sub.expr sub c_rhs;
     c_cont = Option.map (fun cont ->
         {cont with cont_loc = sub.location sub cont.cont_loc}) c_cont

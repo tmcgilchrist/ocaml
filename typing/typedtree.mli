@@ -312,11 +312,14 @@ and cont_desc =
     cont_uid: Uid.t
   }
 
+and guard =
+  | Tguard_when of expression  (** [when E] *)
+
 and 'k case =
     {
      c_lhs: 'k general_pattern;
      c_cont: cont_desc option;
-     c_guard: expression option;
+     c_guards: guard list;
      c_rhs: expression;
     }
 
@@ -962,6 +965,12 @@ val pat_bound_idents_full:
 (** Splits an or pattern into its value (left) and exception (right) parts. *)
 val split_pattern:
   computation general_pattern -> pattern option * pattern option
+
+val guard_loc: guard -> Location.t
+(** The location of a guard, excluding its leading keyword. *)
+
+val guard_exp: guard -> expression
+(** The expression scrutinised by a guard. *)
 
 val map_apply_arg:
   ('a -> ' b) -> ('a, 'omitted) arg_or_omitted ->  ('b, 'omitted) arg_or_omitted

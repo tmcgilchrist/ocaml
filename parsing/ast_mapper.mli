@@ -61,6 +61,7 @@ type mapper = {
   binding_op: mapper -> binding_op -> binding_op;
   case: mapper -> case -> case;
   cases: mapper -> case list -> case list;
+  guard: mapper -> guard -> guard;
   class_declaration: mapper -> class_declaration -> class_declaration;
   class_description: mapper -> class_description -> class_description;
   class_expr: mapper -> class_expr -> class_expr;
