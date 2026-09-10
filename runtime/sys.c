@@ -180,14 +180,20 @@ CAMLexport void caml_do_exit(int retcode)
     }
   }
 
-/* Tear down runtime_events before we leave */
-CAML_RUNTIME_EVENTS_DESTROY();
-
 #ifndef NATIVE_CODE
   caml_debugger(PROGRAM_EXIT, Val_unit);
 #endif
   if (caml_params->cleanup_on_exit)
     caml_shutdown();
+
+  /* Tear down runtime_events as late as we can, so that events emitted during
+     shutdown are recorded. When [cleanup_on_exit] is set this has already been
+     done by [caml_domain_terminate], which is later still and is the last
+     point at which this domain can take part in the stop-the-world that the
+     teardown needs. The call is a no-op if that has happened; it is reached
+     when [caml_shutdown] did not run, or returned early because other domains
+     were still active. */
+  CAML_RUNTIME_EVENTS_DESTROY();
 #ifdef _WIN32
   caml_restore_win32_terminal();
 #endif
