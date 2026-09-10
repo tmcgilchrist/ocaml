@@ -48,9 +48,8 @@ let bind_cases l =
         let open Location in
         match c_guards with
         | [] -> c_rhs.exp_loc
-        | g :: _ ->
-            let start = (guard_loc g).loc_start in
-            {c_rhs.exp_loc with loc_start=start}
+        | Tguard_when g :: _ ->
+            {c_rhs.exp_loc with loc_start=g.exp_loc.loc_start}
       in
       bind_variables loc c_lhs
     )

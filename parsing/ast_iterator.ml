@@ -524,6 +524,8 @@ module P = struct
         List.iter (iter_tuple (iter_loc_lid sub) (sub.pat sub)) lpl
     | Ppat_array pl -> List.iter (sub.pat sub) pl
     | Ppat_or (p1, p2) -> sub.pat sub p1; sub.pat sub p2
+    | Ppat_guarded (p, q, e) ->
+        sub.pat sub p; sub.pat sub q; sub.expr sub e
     | Ppat_constraint (p, t) ->
         sub.pat sub p; sub.typ sub t
     | Ppat_type s -> iter_loc_lid sub s
@@ -763,7 +765,6 @@ let default_iterator =
       (fun this g ->
          match g with
          | Pguard_when e -> this.expr this e
-         | Pguard_with (p, e) -> this.pat this p; this.expr this e
       );
 
     location = (fun _this _l -> ());

@@ -553,7 +553,7 @@ let set_args q r = match q with
     rest
 | {pat_desc=Tpat_constant _|Tpat_any} ->
     q::r (* case any is used in matching.ml *)
-| {pat_desc = (Tpat_var _ | Tpat_alias _ | Tpat_or _); _} ->
+| {pat_desc = (Tpat_var _ | Tpat_alias _ | Tpat_or _ | Tpat_guarded _); _} ->
     fatal_error "Parmatch.set_args"
 
 (* Given a matrix of non-empty rows
@@ -1074,6 +1074,7 @@ let rec has_instance p = match p.pat_desc with
   | Tpat_tuple labeled_ps -> has_instances (List.map snd labeled_ps)
   | Tpat_record (lps,_) -> has_instances (List.map (fun (_,_,x) -> x) lps)
   | Tpat_lazy p
+  | Tpat_guarded (p, _, _)
     -> has_instance p
 
 and has_instances = function
@@ -1737,6 +1738,32 @@ and le_tuple_pats labeled_ps labeled_qs =
       && le_pat p q && le_tuple_pats labeled_ps labeled_qs
   | _, _ -> true
 
+(* A [with] guard restricts the values matched by a pattern in a way that
+   the algorithms of this module cannot represent. A row whose pattern
+   carries a guard that can fail is therefore treated exactly like a row
+   with a [when] guard: it is still checked for redundancy, but it does
+   not contribute to exhaustiveness. Guards that cannot fail are simply
+   erased, which is what lets
+
+     let f (Some x | None with x = 0) = x
+
+   be seen as exhaustive. *)
+let rec has_refutable_guard : type k . k general_pattern -> bool = fun p ->
+  match p.pat_desc with
+  | Tpat_guarded (p, q, _) ->
+      has_refutable_guard p || has_refutable_guard q
+      || not (le_pat (strip_guards q) omega)
+  | d ->
+      let found = ref false in
+      shallow_iter_pattern_desc
+        { f = (fun p -> if has_refutable_guard p then found := true) } d;
+      !found
+
+let normalize_guards case =
+  { case with
+    pattern = strip_guards case.pattern;
+    has_guard = case.has_guard || has_refutable_guard case.pattern }
+
 let get_mins le ps =
   let rec select_rec r = function
       [] -> r
@@ -1975,6 +2002,8 @@ let rec collect_paths_from_pat r p = match p.pat_desc with
     collect_paths_from_pat r p
 | Tpat_or (p1,p2,_) ->
     collect_paths_from_pat (collect_paths_from_pat r p1) p2
+| Tpat_guarded (p,q,_) ->
+    collect_paths_from_pat (collect_paths_from_pat r p) q
 | Tpat_lazy p
     ->
     collect_paths_from_pat r p
@@ -2013,6 +2042,7 @@ let do_check_fragile loc casel pss =
 (********************************)
 
 let check_unused pred casel =
+  let casel = List.map normalize_guards casel in
   if Warnings.is_active Warnings.Redundant_case
   || List.exists (fun vc -> vc.needs_refute) casel then
     let rec do_rec pref = function
@@ -2084,7 +2114,8 @@ let check_unused pred casel =
 (* Exported irrefutability tests *)
 (*********************************)
 
-let irrefutable pat = le_pat pat omega
+let irrefutable pat =
+  not (has_refutable_guard pat) && le_pat (strip_guards pat) omega
 
 let inactive ~partial pat =
   match partial with
@@ -2094,6 +2125,8 @@ let inactive ~partial pat =
         match pat.pat_desc with
         | Tpat_lazy _ | Tpat_array (Mutable, _) ->
           false
+        (* the guard expression runs arbitrary code *)
+        | Tpat_guarded _ -> false
         | Tpat_any | Tpat_var _ | Tpat_variant (_, None, _) ->
             true
         | Tpat_constant c -> begin
@@ -2134,6 +2167,7 @@ let inactive ~partial pat =
 *)
 
 let check_partial pred loc casel =
+  let casel = List.map normalize_guards casel in
   let pss = initial_matrix casel in
   let pss = get_mins le_pats pss in
   let total = do_check_partial ~pred loc casel pss in
@@ -2377,12 +2411,16 @@ let check_ambiguous_bindings =
   fun cases ->
     if is_active warn0 then
       let check_case ns case = match case with
-        | { c_lhs = p; c_guards=[] ; _} -> [p]::ns
-        | { c_lhs = p; c_guards; _} ->
+        (* The variables bound by a [with] guard are bound by the
+           alternative it is attached to, so they are never ambiguous;
+           only look at the pattern they guard. *)
+        | { c_lhs = p; c_guards=[] ; _} -> [strip_guards p]::ns
+        | { c_lhs; c_guards; _} ->
+            let p = strip_guards c_lhs in
             let guard_idents =
               List.fold_left
-                (fun acc g ->
-                   Ident.Set.union acc (all_rhs_idents (guard_exp g)))
+                (fun acc (Tguard_when g) ->
+                   Ident.Set.union acc (all_rhs_idents g))
                 Ident.Set.empty c_guards
             in
             let all = Ident.Set.inter (pattern_vars p) guard_idents in

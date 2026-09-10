@@ -297,6 +297,11 @@ and pattern : type k . _ -> _ -> k general_pattern -> unit = fun i ppf x ->
       line i ppf "Tpat_or\n";
       pattern i ppf p1;
       pattern i ppf p2;
+  | Tpat_guarded (p, q, e) ->
+      line i ppf "Tpat_guarded\n";
+      pattern i ppf p;
+      pattern i ppf q;
+      expression i ppf e;
 
 and labeled_pattern
   : type k . _ -> _ -> string option * k general_pattern -> unit =
@@ -999,8 +1004,6 @@ and case
 
 and guard i ppf = function
   | Tguard_when g -> line i ppf "<when>\n"; expression (i+1) ppf g
-  | Tguard_with (p, g) ->
-      line i ppf "<with>\n"; pattern (i+1) ppf p; expression (i+1) ppf g
 
 and value_binding rec_flag i ppf x =
   begin match rec_flag, x.vb_rec_kind with

@@ -116,6 +116,9 @@ let rec pretty_val : type k . _ -> k general_pattern -> _ = fun ppf v ->
       fprintf ppf "@[<2>exception@ %a@]" pretty_arg v
   | Tpat_or _ ->
       fprintf ppf "@[(%a)@]" pretty_or v
+  | Tpat_guarded (v, q, _) ->
+      (* the guard expression is not a pattern, so it is elided *)
+      fprintf ppf "@[<2>%a@ with %a = _@]" pretty_val v pretty_val q
 
 and pretty_car ppf v = match v.pat_desc with
 | Tpat_construct (_,cstr, [_ ; _], None)

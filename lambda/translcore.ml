@@ -280,7 +280,7 @@ and transl_exp0 ~in_new_scope ~scopes e =
       let id = Typecore.name_cases "exn" pat_expr_list in
       Ltrywith(transl_exp ~scopes body, id,
                Matching.for_trywith ~scopes e.exp_loc (Lvar id)
-                 (transl_cases_try ~scopes pat_expr_list))
+                 (transl_cases_try ~scopes ~arg:(Lvar id) pat_expr_list))
   | Texp_try(body, exn_pat_expr_list, eff_pat_expr_list) ->
       transl_handler ~scopes e body None exn_pat_expr_list eff_pat_expr_list
   | Texp_tuple el ->
@@ -592,11 +592,12 @@ and transl_list_with_shape ~scopes expr_list =
    common exit when there is more than one of them. A lone guard fails in
    a single place, so it can use [staticfail] directly; this keeps the
    code generated for the common case of a single [when] guard unchanged. *)
-and transl_guards ~scopes guards rhs =
+and transl_guards ~scopes ?failure guards rhs =
+  let failure = Option.value failure ~default:staticfail in
   let body = event_before ~scopes rhs (transl_exp ~scopes rhs) in
   match guards with
   | [] -> body
-  | [ guard ] -> transl_guard ~scopes ~failure:staticfail guard body
+  | [ guard ] -> transl_guard ~scopes ~failure guard body
   | _ :: _ :: _ ->
       let fail = next_raise_count () in
       let guarded =
@@ -604,7 +605,7 @@ and transl_guards ~scopes guards rhs =
           (transl_guard ~scopes ~failure:(Lstaticraise (fail, [])))
           guards body
       in
-      Lstaticcatch (guarded, (fail, []), staticfail)
+      Lstaticcatch (guarded, (fail, []), failure)
 
 (* [transl_guard ~failure g body] evaluates [g], runs [body] if it
    succeeds and [failure] if it does not. *)
@@ -613,10 +614,6 @@ and transl_guard ~scopes ~failure guard body =
   | Tguard_when cond ->
       event_before ~scopes cond
         (Lifthenelse(transl_exp ~scopes cond, body, failure))
-  | Tguard_with (pat, scrutinee) ->
-      event_before ~scopes scrutinee
-        (Matching.for_guard ~scopes scrutinee.exp_loc ~failure
-           (transl_exp ~scopes scrutinee) [ (pat, body) ])
 
 and transl_cont cont c_cont body =
   match cont, c_cont with
@@ -626,25 +623,149 @@ and transl_cont cont c_cont body =
   | Some _, None -> body
   | None, Some _ -> assert false
 
-and transl_case ~scopes ?cont {c_lhs; c_cont; c_guards; c_rhs} =
-  (c_lhs, transl_cont cont c_cont (transl_guards ~scopes c_guards c_rhs))
+(* A pattern that carries [with] guards is compiled as a nested match on
+   the same value: the row of the enclosing match keeps the guard-free
+   pattern, and its action selects the alternative again, this time
+   running the guards.
 
-and transl_cases ~scopes ?cont cases =
+   This mirrors what the pattern-match compiler does for or-patterns
+   ([Matching.Simple.explode_or_pat]), but has to happen here because
+   only this module can translate the guard expressions. Compiling the
+   alternatives as the rows of a nested match is what gives them the
+   expected semantics: a failing guard resumes with the next alternative,
+   while a failing [when] guard, which belongs to the case as a whole,
+   abandons the case altogether.
+
+   [alternatives p] lists the guard-free alternatives of [p], each with
+   the guards that must succeed for it to be selected, in the order in
+   which they are written. *)
+and wrap_handlers handlers lam =
+  List.fold_left
+    (fun body (exit, kinds, handler) ->
+       Lstaticcatch (body, (exit, kinds), handler))
+    lam handlers
+
+and alternatives
+  : type k . k general_pattern ->
+      (k general_pattern * (pattern * expression) list) list
+  = fun p ->
+  match p.pat_desc with
+  | Tpat_guarded (p, q, e) ->
+      List.map (fun (p, gs) -> (p, gs @ [ (q, e) ])) (alternatives p)
+  (* [Some _] marks the expansion of a [#typ] pattern, which is generated
+     and so cannot carry a guard. *)
+  | Tpat_or (p1, p2, None) -> alternatives p1 @ alternatives p2
+  | _ -> [ (p, []) ]
+
+and has_pattern_guard : type k . k general_pattern -> bool = fun p ->
+  match p.pat_desc with
+  | Tpat_guarded _ -> true
+  | d ->
+      let found = ref false in
+      Typedtree.shallow_iter_pattern_desc
+        { f = (fun p -> if has_pattern_guard p then found := true) } d;
+      !found
+
+(* [explode_guards ~arg ~can_fail p mk_body] compiles the pattern [p],
+   which carries [with] guards, into a single row of the enclosing match.
+   [arg] must be a variable: it is matched both by that row and by the
+   nested match selecting the alternative. [mk_body] is given the way to
+   signal that the case as a whole failed, when it can. *)
+and explode_guards ~scopes ~arg ~can_fail c_lhs mk_body =
+  begin
+    let ids_full = Typedtree.pat_bound_idents_full c_lhs in
+    let ids = List.map (fun (id, _, _, _) -> id) ids_full in
+    let kinds =
+      List.map
+        (fun (id, _, ty, _) -> (id, Typeopt.value_kind c_lhs.pat_env ty))
+        ids_full
+    in
+    let body_exit = next_raise_count () in
+    let case_fail = if can_fail then Some (next_raise_count ()) else None in
+    let failure = Option.map (fun exit -> Lstaticraise (exit, [])) case_fail in
+    let row (p, guards) =
+      (* Distinct rows must not bind the same identifiers, so each
+         alternative gets its own copy of the variables of the pattern
+         and passes them to the handler that holds the body. *)
+      let map =
+        List.fold_left
+          (fun map id -> Ident.Map.add id (Ident.rename id) map)
+          Ident.Map.empty ids
+      in
+      let renaming = Ident.Map.bindings map in
+      let jump =
+        Lstaticraise
+          (body_exit, List.map (fun id -> Lvar (Ident.Map.find id map)) ids)
+      in
+      let transl_pattern_guard ~failure (q, e) body =
+        (* The guard expression is translated in the scope of the
+           original variables and renamed afterwards, as renaming a
+           lambda term is easier than renaming a typed expression. *)
+        event_before ~scopes e
+          (Matching.for_guard ~scopes e.exp_loc ~failure
+             (Lambda.rename map (transl_exp ~scopes e))
+             [ (alpha_pat renaming q, body) ])
+      in
+      let action =
+        (* Failure of a guard is signalled by [staticfail], which the
+           nested match patches with the code for the alternatives that
+           remain to be tried. As in [transl_guards], several guards
+           jump to a common exit first. *)
+        match guards with
+        | [] -> jump
+        | [ g ] -> transl_pattern_guard ~failure:staticfail g jump
+        | _ :: _ :: _ ->
+            let fail = next_raise_count () in
+            Lstaticcatch
+              (List.fold_right
+                 (transl_pattern_guard ~failure:(Lstaticraise (fail, [])))
+                 guards jump,
+               (fail, []), staticfail)
+      in
+      (alpha_pat renaming p, action)
+    in
+    let selection =
+      Matching.for_guard ~scopes c_lhs.pat_loc ?failure arg
+        (List.map row (alternatives c_lhs))
+    in
+    let lam = Lstaticcatch (selection, (body_exit, kinds), mk_body failure) in
+    let lam =
+      match case_fail with
+      | None -> lam
+      | Some exit -> Lstaticcatch (lam, (exit, []), staticfail)
+    in
+    (Typedtree.strip_guards c_lhs, lam)
+  end
+
+and transl_case ~scopes ~arg ?cont {c_lhs; c_cont; c_guards; c_rhs} =
+  if not (has_pattern_guard c_lhs) then
+    (c_lhs, transl_cont cont c_cont (transl_guards ~scopes c_guards c_rhs))
+  else
+    let can_fail = c_guards <> [] || Parmatch.has_refutable_guard c_lhs in
+    explode_guards ~scopes ~arg ~can_fail c_lhs
+      (fun failure ->
+         (* The [when] guards of the case are checked once an
+            alternative has been selected; failing one abandons the
+            whole case. *)
+         transl_cont cont c_cont (transl_guards ~scopes ?failure c_guards
+                                    c_rhs))
+
+and transl_cases ~scopes ~arg ?cont cases =
   let cases =
     List.filter (fun c -> c.c_rhs.exp_desc <> Texp_unreachable) cases in
-  List.map (transl_case ~scopes ?cont) cases
+  List.map (transl_case ~scopes ~arg ?cont) cases
 
-and transl_case_try ~scopes {c_lhs; c_guards; c_rhs} =
+and transl_case_try ~scopes ~arg ({c_lhs; _} as c) =
   iter_exn_names Translprim.add_exception_ident c_lhs;
   Misc.try_finally
-    (fun () -> c_lhs, transl_guards ~scopes c_guards c_rhs)
+    (fun () -> transl_case ~scopes ~arg c)
     ~always:(fun () ->
         iter_exn_names Translprim.remove_exception_ident c_lhs)
 
-and transl_cases_try ~scopes cases =
+and transl_cases_try ~scopes ~arg cases =
   let cases =
     List.filter (fun c -> c.c_rhs.exp_desc <> Texp_unreachable) cases in
-  List.map (transl_case_try ~scopes) cases
+  List.map (transl_case_try ~scopes ~arg) cases
 
 and transl_tupled_cases ~scopes patl_expr_list =
   let patl_expr_list =
@@ -851,7 +972,7 @@ and transl_curried_function ~scopes loc return repr params body =
         in
         let body =
           Matching.for_function ~scopes cases_loc repr (Lvar param)
-            (transl_cases ~scopes cases) partial
+            (transl_cases ~scopes ~arg:(Lvar param) cases) partial
         in
         Some (param, kind), body
   in
@@ -862,10 +983,16 @@ and transl_curried_function ~scopes loc return repr params body =
       match fp.fp_kind with
       | Tparam_pat pat ->
           let kind = value_kind pat.pat_env pat.pat_type in
+          let row =
+            if not (has_pattern_guard pat) then (pat, body)
+            else
+              explode_guards ~scopes ~arg:(Lvar param)
+                ~can_fail:(Parmatch.has_refutable_guard pat) pat
+                (fun _failure -> body)
+          in
           let body =
             Matching.for_function ~scopes param_loc None (Lvar param)
-              [ pat, body ]
-              fp.fp_partial
+              [ row ] fp.fp_partial
           in
           body, (param, kind) :: params
       | Tparam_optional_default (pat, default_arg) ->
@@ -1106,6 +1233,13 @@ and transl_atomic_loc ~scopes arg lbl =
   (arg, lbl)
 
 and transl_match ~scopes e arg pat_expr_list partial =
+  (* A pattern carrying [with] guards is matched a second time by the
+     code [transl_case] generates for it, so the value must be named. *)
+  let guarded =
+    List.exists (fun c -> has_pattern_guard c.c_lhs) pat_expr_list
+  in
+  let exn_id = Ident.create_local "exn" in
+  let val_id = Ident.create_local "*match*" in
   let rewrite_case (val_cases, exn_cases, static_handlers as acc)
         ({ c_lhs; c_guards; c_rhs } as case) =
     if c_rhs.exp_desc = Texp_unreachable then acc else
@@ -1113,13 +1247,15 @@ and transl_match ~scopes e arg pat_expr_list partial =
     match val_pat, exn_pat with
     | None, None -> assert false
     | Some pv, None ->
-        let val_case =
-          transl_case ~scopes { case with c_lhs = pv }
+        let case =
+          transl_case ~scopes ~arg:(Lvar val_id) { case with c_lhs = pv }
         in
-        val_case :: val_cases, exn_cases, static_handlers
+        case :: val_cases, exn_cases, static_handlers
     | None, Some pe ->
-        let exn_case = transl_case_try ~scopes { case with c_lhs = pe } in
-        val_cases, exn_case :: exn_cases, static_handlers
+        let case =
+          transl_case_try ~scopes ~arg:(Lvar exn_id) { case with c_lhs = pe }
+        in
+        val_cases, case :: exn_cases, static_handlers
     | Some pv, Some pe ->
         assert (c_guards = []);
         let lbl  = next_raise_count () in
@@ -1171,21 +1307,20 @@ and transl_match ~scopes e arg pat_expr_list partial =
      value actions run outside the try..with exception handler.
   *)
   let static_catch scrutinees val_ids handler =
-    let id = Typecore.name_pattern "exn" (List.map fst exn_cases) in
     let static_exception_id = next_raise_count () in
     Lstaticcatch
-      (Ltrywith (Lstaticraise (static_exception_id, scrutinees), id,
-                 Matching.for_trywith ~scopes e.exp_loc (Lvar id) exn_cases),
+      (Ltrywith (Lstaticraise (static_exception_id, scrutinees), exn_id,
+                 Matching.for_trywith ~scopes e.exp_loc (Lvar exn_id)
+                   exn_cases),
        (static_exception_id, val_ids),
        handler)
   in
   let classic =
     match arg, exn_cases with
-    | {exp_desc = Texp_tuple argl}, [] ->
-      assert (static_handlers = []);
+    | {exp_desc = Texp_tuple argl}, [] when not guarded ->
       Matching.for_multiple_match ~scopes e.exp_loc
         (transl_list ~scopes (List.map snd argl)) val_cases partial
-    | {exp_desc = Texp_tuple argl}, _ :: _ ->
+    | {exp_desc = Texp_tuple argl}, _ :: _ when not guarded ->
         let argl = List.map snd argl in
         let val_ids =
           List.map
@@ -1200,19 +1335,17 @@ and transl_match ~scopes e arg pat_expr_list partial =
           (Matching.for_multiple_match ~scopes e.exp_loc
              lvars val_cases partial)
     | arg, [] ->
-      assert (static_handlers = []);
-      Matching.for_function ~scopes e.exp_loc
-        None (transl_exp ~scopes arg) val_cases partial
+        let k = Typeopt.value_kind arg.exp_env arg.exp_type in
+        Llet (Strict, k, val_id, transl_exp ~scopes arg,
+              Matching.for_function ~scopes e.exp_loc
+                None (Lvar val_id) val_cases partial)
     | arg, _ :: _ ->
-        let val_id = Typecore.name_pattern "val" (List.map fst val_cases) in
         let k = Typeopt.value_kind arg.exp_env arg.exp_type in
         static_catch [transl_exp ~scopes arg] [val_id, k]
           (Matching.for_function ~scopes e.exp_loc
              None (Lvar val_id) val_cases partial)
   in
-  List.fold_left (fun body (static_exception_id, val_ids, handler) ->
-    Lstaticcatch (body, (static_exception_id, val_ids), handler)
-  ) classic static_handlers
+  wrap_handlers static_handlers classic
 
 and prim_alloc_stack =
   Pccall (Primitive.simple ~name:"caml_alloc_stack" ~arity:3 ~alloc:true)
@@ -1226,19 +1359,19 @@ and transl_handler ~scopes e body val_caselist exn_caselist eff_caselist =
          ~return:Pgenval ~body:(Lvar param)
          ~attr:default_function_attribute ~loc:Loc_unknown
     | Some (val_caselist, partial) ->
-        let val_cases = transl_cases ~scopes val_caselist in
         let param = Typecore.name_cases "param" val_caselist in
+        let val_cases = transl_cases ~scopes ~arg:(Lvar param) val_caselist in
         let body =
-          Matching.for_function ~scopes e.exp_loc None (Lvar param) val_cases
-            partial
+          Matching.for_function ~scopes e.exp_loc None (Lvar param)
+            val_cases partial
         in
         lfunction ~kind:Curried ~params:[param, Pgenval]
           ~return:Pgenval ~attr:default_function_attribute
           ~loc:Loc_unknown ~body
   in
   let exn_fun =
-    let exn_cases = transl_cases ~scopes exn_caselist in
     let param = Typecore.name_cases "exn" exn_caselist in
+    let exn_cases = transl_cases ~scopes ~arg:(Lvar param) exn_caselist in
     let body = Matching.for_trywith ~scopes e.exp_loc (Lvar param) exn_cases in
     lfunction ~kind:Curried ~params:[param, Pgenval] ~return:Pgenval
       ~attr:default_function_attribute ~loc:Loc_unknown ~body
@@ -1246,7 +1379,9 @@ and transl_handler ~scopes e body val_caselist exn_caselist eff_caselist =
   let eff_fun =
     let param = Typecore.name_cases "eff" eff_caselist in
     let cont = Ident.create_local "k" in
-    let eff_cases = transl_cases ~scopes ~cont eff_caselist in
+    let eff_cases =
+      transl_cases ~scopes ~arg:(Lvar param) ~cont eff_caselist
+    in
     let body =
       Matching.for_handler ~scopes e.exp_loc (Lvar param) (Lvar cont) eff_cases
     in

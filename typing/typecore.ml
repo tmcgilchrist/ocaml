@@ -183,6 +183,7 @@ type error =
   | No_value_clauses
   | Exception_pattern_disallowed
   | Mixed_value_and_exception_patterns_under_guard
+  | Illegal_guard_position
   | Effect_pattern_below_toplevel
   | Invalid_continuation_pattern
   | Inlined_record_escape
@@ -849,6 +850,18 @@ type pattern_variable =
     pv_uid : Uid.t;
   }
 
+let add_pattern_variables ?check ?check_as env pv =
+  List.fold_right
+    (fun {pv_id; pv_type; pv_loc; pv_kind; pv_attributes; pv_uid} env ->
+       let check = if pv_kind=As_var then check_as else check in
+       Env.add_value ?check pv_id
+         {val_type = pv_type; val_kind = Val_reg; Types.val_loc = pv_loc;
+          val_attributes = pv_attributes;
+          val_uid = pv_uid;
+         } env
+    )
+    pv env
+
 type module_variable =
   {
     mv_id: Ident.t;
@@ -883,6 +896,14 @@ type module_variables =
       }
   | Modvars_rejected
   | Modvars_ignored
+
+(* The expression of a [with] guard sits inside a pattern, so [type_pat]
+   below has to type an expression. Expressions are typed further down;
+   break the cycle with a forward reference, set once [type_exp] is
+   available. *)
+let type_guard_exp
+  : (Env.t -> Parsetree.expression -> Typedtree.expression) ref
+  = ref (fun _ _ -> assert false)
 
 type type_pat_state =
   { mutable tps_pattern_variables: pattern_variable list;
@@ -1064,6 +1085,7 @@ and build_as_type_extra_inner env p ty rest =
 and build_as_type_aux (env : Env.t) p =
   match p.pat_desc with
     Tpat_alias(p1,_, _, _, _) -> build_as_type env p1
+  | Tpat_guarded(p1, _, _) -> build_as_type env p1
   | Tpat_tuple pl ->
       let labeled_tyl =
         List.map (fun (label, p) -> label, build_as_type env p) pl in
@@ -2007,6 +2029,8 @@ let rec has_literal_pattern p = match p.ppat_desc with
   | Ppat_effect (p, q)
   | Ppat_or (p, q) ->
      has_literal_pattern p || has_literal_pattern q
+  | Ppat_guarded (p, q, _) ->
+     has_literal_pattern p || has_literal_pattern q
 
 (** The typedtree has two distinct syntactic categories for patterns,
    "value" patterns, matching on values, and "computation" patterns
@@ -2109,8 +2133,9 @@ and type_pat_aux
          penv:Pattern_env.t -> _ -> _ -> k general_pattern
   = fun tps category ~no_existentials ~penv sp expected_ty ->
   assert (penv.in_counterexample = false);
+  let type_pat_gen = type_pat in
   let type_pat tps category ?(penv=penv) =
-    type_pat tps category ~no_existentials ~penv
+    type_pat_gen tps category ~no_existentials ~penv
   in
   let loc = sp.ppat_loc in
   let solve_expected (x : pattern) : pattern =
@@ -2450,6 +2475,11 @@ and type_pat_aux
       ) p2_variables;
       let alpha_env =
         enter_orpat_variables loc !!penv p1_variables p2_variables in
+      (* The variables of the second alternative are replaced by those of
+         the first below, so their declarations are used. Marking them is
+         only needed when a [with] guard has already brought them into
+         scope, which registers them for the unused-variable check. *)
+      List.iter (fun { pv_uid; _ } -> Env.mark_value_used pv_uid) p2_variables;
       (* Propagate the outcome of checking the or-pattern back to
          the type_pat_state that the caller passed in.
       *)
@@ -2464,7 +2494,9 @@ and type_pat_aux
             tps_module_variables = tps1.tps_module_variables;
           }
         ~dst:tps;
-      let p2 = alpha_pat alpha_env p2 in
+      let p2 =
+        Tast_mapper.rename_guard_expressions alpha_env (alpha_pat alpha_env p2)
+      in
       Tpat_or (p1, p2, None)
       end
       in
@@ -2473,6 +2505,36 @@ and type_pat_aux
            pat_type = instance expected_ty;
            pat_attributes = sp.ppat_attributes;
            pat_env = !!penv }
+  | Ppat_guarded (sp1, sq, sexp) ->
+      (* [P with Q = E] matches the values matched by [P] whose
+         accompanying value of [E] matches [Q]. [E] is evaluated in the
+         scope of the variables bound by [P], which includes those bound
+         by the guards of [P] itself. *)
+      let p1 = type_pat tps category sp1 expected_ty in
+      let guard_env =
+        let ids = Ident.Set.of_list (pat_bound_idents p1) in
+        let vars =
+          List.filter
+            (fun pv -> Ident.Set.mem pv.pv_id ids)
+            tps.tps_pattern_variables
+        in
+        add_pattern_variables !!penv vars
+          ~check:(fun s -> Warnings.Unused_var_strict s)
+          ~check_as:(fun s -> Warnings.Unused_var s)
+      in
+      let exp = !type_guard_exp guard_env sexp in
+      let q =
+        (* the scope of the equations that an existential type would
+           introduce here is not tracked, so reject them *)
+        type_pat_gen tps Value ~no_existentials:(Some In_with_guard) ~penv
+          sq exp.exp_type
+      in
+      rp {
+        pat_desc = Tpat_guarded (p1, q, exp);
+        pat_loc = loc; pat_extra = [];
+        pat_type = instance expected_ty;
+        pat_attributes = sp.ppat_attributes;
+        pat_env = !!penv }
   | Ppat_lazy sp1 ->
       let nv = solve_Ppat_lazy loc penv expected_ty in
       let p1 = type_pat tps Value sp1 nv in
@@ -2523,18 +2585,6 @@ and type_pat_aux
 let iter_pattern_variables_type f : pattern_variable list -> unit =
   List.iter (fun {pv_type; _} -> f pv_type)
 
-let add_pattern_variables ?check ?check_as env pv =
-  List.fold_right
-    (fun {pv_id; pv_type; pv_loc; pv_kind; pv_attributes; pv_uid} env ->
-       let check = if pv_kind=As_var then check_as else check in
-       Env.add_value ?check pv_id
-         {val_type = pv_type; val_kind = Val_reg; Types.val_loc = pv_loc;
-          val_attributes = pv_attributes;
-          val_uid = pv_uid;
-         } env
-    )
-    pv env
-
 (** [add_let_pattern_vars] adds the pattern variables [pvs] to [env] for
     a let bindings. Additionally binds any type vars used in the patterns. *)
 let add_let_pattern_vars env ~pvs ~bind_type_vars_delayed =
@@ -2575,14 +2625,35 @@ let add_module_variables env module_variables =
 let type_pat tps category ?no_existentials penv =
   type_pat tps category ~no_existentials ~penv
 
-let type_pattern category ~lev ?no_existentials env spat expected_ty ?cont
-      allow_modules =
+(* A [with] guard can fail, so it is only meaningful where the matching
+   can resume with something else, and [Translcore] only knows how to
+   lift one out of the alternatives of an or-pattern. Reject the other
+   positions rather than miscompile them. *)
+let rec check_guard_positions
+  : type k . guards:bool -> Env.t -> k general_pattern -> unit
+  = fun ~guards env p ->
+  match p.pat_desc with
+  | Tpat_guarded (p1, q, _) ->
+      if not guards then
+        Error.log_and_raise p.pat_loc env Illegal_guard_position;
+      check_guard_positions ~guards env p1;
+      check_guard_positions ~guards:false env q
+  | Tpat_or (p1, p2, _) ->
+      check_guard_positions ~guards env p1;
+      check_guard_positions ~guards env p2
+  | d ->
+      shallow_iter_pattern_desc
+        { f = (fun p -> check_guard_positions ~guards:false env p) } d
+
+let type_pattern category ~lev ?no_existentials ?(guards = false) env spat
+      expected_ty ?cont allow_modules =
   let tps = create_type_pat_state ?cont allow_modules in
   let new_penv = Pattern_env.make env
       ~equations_scope:lev ~in_counterexample:false in
   let pat =
     type_pat tps category ?no_existentials new_penv spat expected_ty
   in
+  check_guard_positions ~guards !!new_penv pat;
   let { tps_pattern_variables = pvs;
         tps_module_variables = mvs;
         tps_pattern_force = pattern_forces;
@@ -2603,6 +2674,7 @@ let type_pattern_list
       )
   in
   let patl = List.map2 type_pat spatl expected_tys in
+  List.iter (check_guard_positions ~guards:false !!new_penv) patl;
   let { tps_pattern_variables = pvs;
         tps_module_variables = mvs;
         tps_pattern_force = pattern_forces;
@@ -2619,6 +2691,7 @@ let type_class_arg_pattern cl_num val_env met_env l spat =
           ~equations_scope ~in_counterexample:false in
       let pat =
         type_pat tps Value ~no_existentials:In_class_args new_penv spat nv in
+      check_guard_positions ~guards:false !!new_penv pat;
       if has_variants pat then begin
         Parmatch.pressure_variants val_env [pat];
         finalize_variants pat;
@@ -2672,6 +2745,7 @@ let type_self_pattern env spat =
       ~equations_scope ~in_counterexample:false in
   let pat =
     type_pat tps Value ~no_existentials:In_self_pattern new_penv spat nv in
+  check_guard_positions ~guards:false !!new_penv pat;
   List.iter (fun f -> f()) tps.tps_pattern_force;
   pat, tps.tps_pattern_variables
 
@@ -2978,6 +3052,10 @@ let rec check_counter_example_pat
       (* do not explode under lazy: PR#7421 *)
       check_rec ~info:(no_explosion info) tp1 nv
         (fun p1 -> mkp k (Tpat_lazy p1))
+  | Tpat_guarded _ ->
+      (* counter-examples are built by [Parmatch] out of guard-free
+         patterns, see [Parmatch.normalize_guards] *)
+      fatal_error "Typecore.check_counter_example_pat: Tpat_guarded"
 
 let check_counter_example_pat ~counter_example_args penv tp expected_ty =
   (* [check_counter_example_pat] doesn't use [type_pat_state] in an interesting
@@ -3684,7 +3762,6 @@ and is_nonexpansive_opt = function
 
 and is_nonexpansive_guard = function
   | Tguard_when e -> is_nonexpansive e
-  | Tguard_with (_, e) -> is_nonexpansive e
 
 and is_nonexpansive_arg = function
   | Omitted () -> true
@@ -4117,6 +4194,7 @@ let shallow_iter_ppat f p =
   | Ppat_array pats -> List.iter f pats
   | Ppat_or (p1,p2)
   | Ppat_effect(p1, p2) -> f p1; f p2
+  | Ppat_guarded (p1, p2, _) -> f p1; f p2
   | Ppat_variant (_, arg) -> Option.iter f arg
   | Ppat_tuple (lst, _) -> List.iter (fun (_, p) -> f p) lst
   | Ppat_construct (_, Some (_, p))
@@ -4166,6 +4244,7 @@ let rec is_var_pat p =
   | Ppat_record _
   | Ppat_array _
   | Ppat_or _
+  | Ppat_guarded _
   | Ppat_type _
   | Ppat_lazy _
   | Ppat_unpack _
@@ -4191,6 +4270,12 @@ let may_contain_gadts p =
    use its type in the checking of the pattern.  We want that behavior for
    labeled tuple patterns as well.  *)
 let turn_let_into_match p =
+  (* A [with] guard is not allowed in a let binding, and rewriting the
+     binding into a match here would hide it from that check. *)
+  not (exists_ppat (fun p -> match p.ppat_desc with
+                             | Ppat_guarded _ -> true
+                             | _ -> false) p)
+  &&
   exists_ppat
     (fun p ->
        match p.ppat_desc with
@@ -7171,8 +7256,8 @@ and map_half_typed_cases
                   (fun () -> instance ?partial:take_partial_instance ty_arg)
               in
               let (pat, ext_env, force, pvs, mvs) =
-                type_pattern ?cont category ~lev env pattern ty_arg
-                  allow_modules
+                type_pattern ?cont category ~lev ~guards:true env pattern
+                  ty_arg allow_modules
               in
               pattern_force := force @ !pattern_force;
               { typed_pat = pat;
@@ -7213,8 +7298,12 @@ and map_half_typed_cases
       unify_pats ty_arg';
       (* Check for polymorphic variants to close *)
       if List.exists has_variants patl then begin
+        (* The match performed by a [with] guard is partial by design, so
+           it cannot close a variant type; erase the guards, keeping the
+           patterns they guard. *)
         Parmatch.pressure_variants_in_computation_pattern env
-          (List.map (as_comp_pattern category) patl);
+          (List.map
+             (fun p -> strip_guards (as_comp_pattern category p)) patl);
         List.iter finalize_variants patl
       end;
       (* `Contaminating' unifications start here *)
@@ -7334,28 +7423,6 @@ and map_half_typed_cases
   (* Ensure that existential types do not escape *)
   ~post:(fun ty_res' -> unify_exp_types loc env ty_res' (newvar ()))
 
-(* Typing of the [with P = E] guard of a match case: [E] is typed in
-   [env] and its type is used to type the pattern [P]. The pattern
-   variables are returned so that the caller can bring them into scope
-   for the remaining guards and for the right-hand side of the case.
-
-   Unlike the pattern of the case itself, [P] is not required to be
-   exhaustive: the guard simply fails when the value of [E] does not
-   match it. Existential types are rejected, as the scope of the
-   equations they would introduce is not tracked here. *)
-and type_with_guard env spat sexp =
-  let exp = type_exp env sexp in
-  let (pat, _, forces, pvs, _) =
-    type_pattern Value ~lev:(get_current_level ())
-      ~no_existentials:In_with_guard env spat exp.exp_type Modules_rejected
-  in
-  List.iter (fun f -> f ()) forces;
-  if has_variants pat then begin
-    Parmatch.pressure_variants env [pat];
-    finalize_variants pat
-  end;
-  (exp, pat, pvs)
-
 (* Typing of match cases *)
 and type_cases
     : type k . k pattern_category -> _ -> _ -> _ -> ?conts:_ ->
@@ -7376,42 +7443,21 @@ and type_cases
     ~type_body:begin
       fun { pc_guards; pc_rhs } pat ~when_env ~ext_env ~cont ~ty_expected
         ~ty_infer ~contains_gadt:_ ->
-        (* It is crucial that the continuation is not used in the guards
-           as the extent of the continuation is yet to be determined. We
-           make the continuation inaccessible by typing the guards using
-           the environment `when_env' which does not bind the
-           continuation variable.
-
-           The pattern of a `with' guard binds variables in the guards
-           that follow it and in the right-hand side, so both
-           environments are extended as we walk through the guards. *)
-        let rec type_guards when_env ext_env = function
-          | [] ->
-              let exp =
-                type_expect ext_env pc_rhs
-                  (mk_expected ?explanation ty_expected)
-              in
-              [], exp
-          | Pguard_when scond :: rest ->
-              let cond =
-                type_expect when_env scond
-                  (mk_expected ~explanation:When_guard Predef.type_bool)
-              in
-              let guards, exp = type_guards when_env ext_env rest in
-              Tguard_when cond :: guards, exp
-          | Pguard_with (spat, sexp) :: rest ->
-              let scrutinee, gpat, pvs = type_with_guard when_env spat sexp in
-              let add env =
-                add_pattern_variables env pvs
-                  ~check:(fun s -> Warnings.Unused_var_strict s)
-                  ~check_as:(fun s -> Warnings.Unused_var s)
-              in
-              let guards, exp =
-                type_guards (add when_env) (add ext_env) rest
-              in
-              Tguard_with (gpat, scrutinee) :: guards, exp
+        (* It is crucial that the continuation is not used in the
+           `when' expressions as the extent of the continuation is yet to
+           be determined. We make the continuation inaccessible by typing
+           them using the environment `when_env' which does not bind the
+           continuation variable. *)
+        let type_guard = function
+          | Pguard_when scond ->
+              Tguard_when
+                (type_expect when_env scond
+                   (mk_expected ~explanation:When_guard Predef.type_bool))
         in
-        let guards, exp = type_guards when_env ext_env pc_guards in
+        let guards = List.map type_guard pc_guards in
+        let exp =
+          type_expect ext_env pc_rhs (mk_expected ?explanation ty_expected)
+        in
         {
           c_lhs = pat;
           c_cont = cont;
@@ -8034,6 +8080,10 @@ let type_let existential_context env rec_flag spat_sexp_list =
 
 (* Typing of toplevel expressions *)
 
+(* Tie the knot for the expression of a [with] guard, see the
+   declaration of [type_guard_exp] above. *)
+let () = type_guard_exp := (fun env sexp -> type_exp env sexp)
+
 let type_expression env sexp =
   let exp =
     with_local_level_generalize begin fun () ->
@@ -8651,6 +8701,12 @@ let report_error ~loc env =
       Location.errorf ~loc
         "@[Mixing value and exception patterns under when-guards is not \
          supported.@]"
+  | Illegal_guard_position ->
+      Location.errorf ~loc
+        "@[A %a guard is only allowed on the pattern of a match case@ or \
+         of a function parameter,@ or on an alternative of an or-pattern@ \
+         in such a position.@]"
+        Style.inline_code "with"
   | Effect_pattern_below_toplevel ->
       Location.errorf ~loc
         "@[Effect patterns must be at the top level of a match case.@]"

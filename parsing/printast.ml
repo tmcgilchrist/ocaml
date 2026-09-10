@@ -245,6 +245,11 @@ and pattern i ppf x =
   | Ppat_array (l) ->
       line i ppf "Ppat_array\n";
       list i pattern ppf l;
+  | Ppat_guarded (p, q, e) ->
+      line i ppf "Ppat_guarded\n";
+      pattern i ppf p;
+      pattern i ppf q;
+      expression i ppf e;
   | Ppat_or (p1, p2) ->
       line i ppf "Ppat_or\n";
       pattern i ppf p1;
@@ -980,8 +985,6 @@ and case i ppf {pc_lhs; pc_guards; pc_rhs} =
 and guard i ppf = function
   | Pguard_when g ->
       line i ppf "<when>\n"; expression (i+1) ppf g
-  | Pguard_with (p, g) ->
-      line i ppf "<with>\n"; pattern (i+1) ppf p; expression (i+1) ppf g
 
 and value_binding i ppf x =
   line i ppf "<def>\n";

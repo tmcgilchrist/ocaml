@@ -364,8 +364,8 @@ File "implementation: FOR UNDERSCORE EQUAL UIDENT WITH", line 1, characters 15-1
 Error: Syntax error
 File "implementation: FOR UNDERSCORE EQUAL WITH", line 1, characters 8-12:
 Error: Syntax error
-File "implementation: FOR UNDERSCORE WITH", line 1, characters 6-10:
-Error: Syntax error
+File "implementation: FOR UNDERSCORE WITH", line 1, characters 0-2:
+Error: Syntax error: pattern expected.
 File "implementation: FOR WITH", line 1, characters 4-8:
 Error: Syntax error
 File "implementation: FUN LABEL WITH", line 1, characters 12-16:
@@ -388,8 +388,8 @@ File "implementation: FUN OPTLABEL LPAREN UNDERSCORE COLON WITH", line 1, charac
 Error: Syntax error
 File "implementation: FUN OPTLABEL LPAREN UNDERSCORE EQUAL CHAR WITH", line 1, characters 22-26:
 Error: Syntax error
-File "implementation: FUN OPTLABEL LPAREN UNDERSCORE WITH", line 1, characters 16-20:
-Error: Syntax error
+File "implementation: FUN OPTLABEL LPAREN UNDERSCORE WITH", line 1, characters 0-2:
+Error: Syntax error: pattern expected.
 File "implementation: FUN OPTLABEL LPAREN WITH", line 1, characters 14-18:
 Error: Syntax error
 File "implementation: FUN OPTLABEL WITH", line 1, characters 12-16:
@@ -453,19 +453,19 @@ Error: Syntax error
 File "implementation: FUNCTION UNDERSCORE AS WITH", line 1, characters 14-18:
 Error: Syntax error: identifier expected.
 File "implementation: FUNCTION UNDERSCORE BAR UNDERSCORE WITH", line 1, characters 0-2:
-Error: Syntax error
+Error: Syntax error: pattern expected.
 File "implementation: FUNCTION UNDERSCORE BAR WITH", line 1, characters 13-17:
 Error: Syntax error: pattern expected.
 File "implementation: FUNCTION UNDERSCORE COLONCOLON UNDERSCORE WITH", line 1, characters 0-2:
-Error: Syntax error
+Error: Syntax error: pattern expected.
 File "implementation: FUNCTION UNDERSCORE COLONCOLON WITH", line 1, characters 14-18:
 Error: Syntax error: pattern expected.
 File "implementation: FUNCTION UNDERSCORE COMMA CHAR COMMA UNDERSCORE WITH", line 1, characters 0-2:
-Error: Syntax error
+Error: Syntax error: pattern expected.
 File "implementation: FUNCTION UNDERSCORE COMMA CHAR COMMA WITH", line 1, characters 19-23:
 Error: Syntax error
 File "implementation: FUNCTION UNDERSCORE COMMA UNDERSCORE WITH", line 1, characters 0-2:
-Error: Syntax error
+Error: Syntax error: pattern expected.
 File "implementation: FUNCTION UNDERSCORE COMMA WITH", line 1, characters 13-17:
 Error: Syntax error: pattern expected.
 File "implementation: FUNCTION UNDERSCORE MINUSGREATER CHAR BAR WITH", line 1, characters 20-24:
@@ -476,12 +476,12 @@ File "implementation: FUNCTION UNDERSCORE MINUSGREATER WITH", line 1, characters
 Error: Syntax error
 File "implementation: FUNCTION UNDERSCORE WHEN UIDENT MINUSGREATER WITH", line 1, characters 26-30:
 Error: Syntax error
-File "implementation: FUNCTION UNDERSCORE WHEN UIDENT WITH", line 1, characters 0-2:
+File "implementation: FUNCTION UNDERSCORE WHEN UIDENT WITH", line 1, characters 23-27:
 Error: Syntax error
 File "implementation: FUNCTION UNDERSCORE WHEN WITH", line 1, characters 16-20:
 Error: Syntax error
 File "implementation: FUNCTION UNDERSCORE WITH", line 1, characters 0-2:
-Error: Syntax error
+Error: Syntax error: pattern expected.
 File "implementation: FUNCTION WITH", line 1, characters 9-13:
 Error: Syntax error
 File "implementation: IF LBRACKETAT AND RBRACKET AND", line 1, characters 12-15:
@@ -832,8 +832,8 @@ File "implementation: LBRACKETPERCENTPERCENT WITH DOT UNDERSCORE", line 1, chara
 Error: Syntax error
 File "implementation: LBRACKETPERCENTPERCENT WITH QUESTION UNDERSCORE WHEN WITH", line 1, characters 18-22:
 Error: Syntax error
-File "implementation: LBRACKETPERCENTPERCENT WITH QUESTION UNDERSCORE WITH", line 1, characters 13-17:
-Error: Syntax error
+File "implementation: LBRACKETPERCENTPERCENT WITH QUESTION UNDERSCORE WITH", line 1, characters 0-2:
+Error: Syntax error: pattern expected.
 File "implementation: LBRACKETPERCENTPERCENT WITH QUESTION WITH", line 1, characters 11-15:
 Error: Syntax error
 File "implementation: LBRACKETPERCENTPERCENT WITH UIDENT WHEN", line 1, characters 17-21:
@@ -898,8 +898,8 @@ File "implementation: LET LIDENT COLONGREATER UNDERSCORE EQUAL WITH", line 1, ch
 Error: Syntax error
 File "implementation: LET LIDENT COLONGREATER UNDERSCORE SEMI", line 1, characters 16-17:
 Error: Syntax error
-File "implementation: LET LIDENT WITH", line 1, characters 11-15:
-Error: Syntax error
+File "implementation: LET LIDENT WITH", line 1, characters 0-2:
+Error: Syntax error: pattern expected.
 File "implementation: LET MODULE LBRACKETAT AND RBRACKET WHILE", line 1, characters 20-25:
 Error: Syntax error
 File "implementation: LET MODULE PERCENT AND LBRACKET", line 1, characters 17-18:
@@ -936,8 +936,8 @@ File "implementation: LET PERCENT AND ASSERT", line 1, characters 10-16:
 Error: Syntax error
 File "implementation: LET REC ASSERT", line 1, characters 8-14:
 Error: Syntax error
-File "implementation: LET UIDENT UNDERSCORE WITH", line 1, characters 13-17:
-Error: Syntax error
+File "implementation: LET UIDENT UNDERSCORE WITH", line 1, characters 0-2:
+Error: Syntax error: pattern expected.
 File "implementation: LET UNDERSCORE COLON UNDERSCORE EQUAL WITH", line 1, characters 12-16:
 Error: Syntax error
 File "implementation: LET UNDERSCORE COLON UNDERSCORE WITH", line 1, characters 10-14:
@@ -948,12 +948,12 @@ File "implementation: LET UNDERSCORE EQUAL CHAR WITH", line 1, characters 12-16:
 Error: Syntax error
 File "implementation: LET UNDERSCORE EQUAL WITH", line 1, characters 8-12:
 Error: Syntax error
-File "implementation: LET UNDERSCORE WITH", line 1, characters 6-10:
-Error: Syntax error
+File "implementation: LET UNDERSCORE WITH", line 1, characters 0-2:
+Error: Syntax error: pattern expected.
 File "implementation: LET WITH", line 1, characters 4-8:
 Error: Syntax error
-File "implementation: LETOP BACKQUOTE UIDENT WITH", line 1, characters 14-18:
-Error: Syntax error
+File "implementation: LETOP BACKQUOTE UIDENT WITH", line 1, characters 0-2:
+Error: Syntax error: pattern expected.
 File "implementation: LETOP HASH WITH", line 1, characters 7-11:
 Error: Syntax error
 File "implementation: LETOP LAZY LBRACKETAT AND RBRACKET ASSERT", line 1, characters 19-25:
@@ -968,10 +968,8 @@ File "implementation: LETOP LBRACE LIDENT COLON UNDERSCORE WITH", line 1, charac
   This { might be unmatched
 File "implementation: LETOP LBRACE LIDENT COLON WITH", line 1, characters 16-20:
 Error: Syntax error
-File "implementation: LETOP LBRACE LIDENT EQUAL UNDERSCORE WITH", line 1, characters 18-22:
-Error: Syntax error: } expected
-File "implementation: LETOP LBRACE LIDENT EQUAL UNDERSCORE WITH", line 1, characters 5-6:
-  This { might be unmatched
+File "implementation: LETOP LBRACE LIDENT EQUAL UNDERSCORE WITH", line 1, characters 0-2:
+Error: Syntax error: pattern expected.
 File "implementation: LETOP LBRACE LIDENT EQUAL WITH", line 1, characters 16-20:
 Error: Syntax error
 File "implementation: LETOP LBRACE LIDENT SEMI UNDERSCORE SEMI WITH", line 1, characters 20-24:
@@ -1006,10 +1004,8 @@ File "implementation: LETOP LBRACKETBAR UNDERSCORE SEMI WITH", line 1, character
 Error: Syntax error: |] expected
 File "implementation: LETOP LBRACKETBAR UNDERSCORE SEMI WITH", line 1, characters 5-7:
   This [| might be unmatched
-File "implementation: LETOP LBRACKETBAR UNDERSCORE WITH", line 1, characters 10-14:
-Error: Syntax error: |] expected
-File "implementation: LETOP LBRACKETBAR UNDERSCORE WITH", line 1, characters 5-7:
-  This [| might be unmatched
+File "implementation: LETOP LBRACKETBAR UNDERSCORE WITH", line 1, characters 0-2:
+Error: Syntax error: pattern expected.
 File "implementation: LETOP LBRACKETBAR WITH", line 1, characters 8-12:
 Error: Syntax error
 File "implementation: LETOP LIDENT ANDOP WITH", line 1, characters 17-21:
@@ -1032,8 +1028,8 @@ File "implementation: LETOP LIDENT UNDERSCORE COLONGREATER LIDENT SEMI", line 1,
 Error: Syntax error
 File "implementation: LETOP LIDENT UNDERSCORE WITH", line 1, characters 14-18:
 Error: Syntax error
-File "implementation: LETOP LIDENT WITH", line 1, characters 12-16:
-Error: Syntax error
+File "implementation: LETOP LIDENT WITH", line 1, characters 0-2:
+Error: Syntax error: pattern expected.
 File "implementation: LETOP LPAREN MINUS WITH", line 1, characters 9-13:
 Error: Syntax error: ) expected
 File "implementation: LETOP LPAREN MINUS WITH", line 1, characters 5-6:
@@ -1062,10 +1058,8 @@ File "implementation: LETOP LPAREN UNDERSCORE COLON UNDERSCORE WITH", line 1, ch
   This ( might be unmatched
 File "implementation: LETOP LPAREN UNDERSCORE COLON WITH", line 1, characters 11-15:
 Error: Syntax error: type expected.
-File "implementation: LETOP LPAREN UNDERSCORE WITH", line 1, characters 9-13:
-Error: Syntax error: ) expected
-File "implementation: LETOP LPAREN UNDERSCORE WITH", line 1, characters 5-6:
-  This ( might be unmatched
+File "implementation: LETOP LPAREN UNDERSCORE WITH", line 1, characters 0-2:
+Error: Syntax error: pattern expected.
 File "implementation: LETOP LPAREN WITH", line 1, characters 7-11:
 Error: Syntax error: operator expected.
 File "implementation: LETOP MINUS WITH", line 1, characters 7-11:
@@ -1074,28 +1068,26 @@ File "implementation: LETOP PLUS WITH", line 1, characters 7-11:
 Error: Syntax error
 File "implementation: LETOP STRING DOTDOT WITH", line 1, characters 16-20:
 Error: Syntax error
-File "implementation: LETOP STRING WITH", line 1, characters 13-17:
-Error: Syntax error
+File "implementation: LETOP STRING WITH", line 1, characters 0-2:
+Error: Syntax error: pattern expected.
 File "implementation: LETOP UIDENT DOT LBRACKET WITH", line 1, characters 16-20:
 Error: Syntax error
-File "implementation: LETOP UIDENT DOT LPAREN UNDERSCORE WITH", line 1, characters 18-22:
-Error: Syntax error: ) expected
-File "implementation: LETOP UIDENT DOT LPAREN UNDERSCORE WITH", line 1, characters 14-15:
-  This ( might be unmatched
+File "implementation: LETOP UIDENT DOT LPAREN UNDERSCORE WITH", line 1, characters 0-2:
+Error: Syntax error: pattern expected.
 File "implementation: LETOP UIDENT DOT LPAREN WITH", line 1, characters 16-20:
 Error: Syntax error: pattern expected.
 File "implementation: LETOP UIDENT DOT WITH", line 1, characters 14-18:
 Error: Syntax error
-File "implementation: LETOP UIDENT LIDENT WITH", line 1, characters 19-23:
-Error: Syntax error
+File "implementation: LETOP UIDENT LIDENT WITH", line 1, characters 0-2:
+Error: Syntax error: pattern expected.
 File "implementation: LETOP UIDENT TILDE", line 1, characters 0-2:
 Error: Syntax error
-File "implementation: LETOP UIDENT WITH", line 1, characters 12-16:
-Error: Syntax error
+File "implementation: LETOP UIDENT WITH", line 1, characters 0-2:
+Error: Syntax error: pattern expected.
 File "implementation: LETOP UNDERSCORE AS WITH", line 1, characters 10-14:
 Error: Syntax error: identifier expected.
-File "implementation: LETOP UNDERSCORE BAR UNDERSCORE WITH", line 1, characters 11-15:
-Error: Syntax error
+File "implementation: LETOP UNDERSCORE BAR UNDERSCORE WITH", line 1, characters 0-2:
+Error: Syntax error: pattern expected.
 File "implementation: LETOP UNDERSCORE BAR WITH", line 1, characters 9-13:
 Error: Syntax error: pattern expected.
 File "implementation: LETOP UNDERSCORE COLON UNDERSCORE EQUAL WITH", line 1, characters 13-17:
@@ -1104,24 +1096,24 @@ File "implementation: LETOP UNDERSCORE COLON UNDERSCORE WITH", line 1, character
 Error: Syntax error
 File "implementation: LETOP UNDERSCORE COLON WITH", line 1, characters 9-13:
 Error: Syntax error
-File "implementation: LETOP UNDERSCORE COLONCOLON UNDERSCORE WITH", line 1, characters 12-16:
-Error: Syntax error
+File "implementation: LETOP UNDERSCORE COLONCOLON UNDERSCORE WITH", line 1, characters 0-2:
+Error: Syntax error: pattern expected.
 File "implementation: LETOP UNDERSCORE COLONCOLON WITH", line 1, characters 10-14:
 Error: Syntax error: pattern expected.
-File "implementation: LETOP UNDERSCORE COMMA CHAR COMMA UNDERSCORE WITH", line 1, characters 17-21:
-Error: Syntax error
+File "implementation: LETOP UNDERSCORE COMMA CHAR COMMA UNDERSCORE WITH", line 1, characters 0-2:
+Error: Syntax error: pattern expected.
 File "implementation: LETOP UNDERSCORE COMMA CHAR COMMA WITH", line 1, characters 15-19:
 Error: Syntax error
-File "implementation: LETOP UNDERSCORE COMMA UNDERSCORE WITH", line 1, characters 11-15:
-Error: Syntax error
+File "implementation: LETOP UNDERSCORE COMMA UNDERSCORE WITH", line 1, characters 0-2:
+Error: Syntax error: pattern expected.
 File "implementation: LETOP UNDERSCORE COMMA WITH", line 1, characters 9-13:
 Error: Syntax error: pattern expected.
 File "implementation: LETOP UNDERSCORE EQUAL CHAR WITH", line 1, characters 13-17:
 Error: Syntax error
 File "implementation: LETOP UNDERSCORE EQUAL WITH", line 1, characters 9-13:
 Error: Syntax error
-File "implementation: LETOP UNDERSCORE WITH", line 1, characters 7-11:
-Error: Syntax error
+File "implementation: LETOP UNDERSCORE WITH", line 1, characters 0-2:
+Error: Syntax error: pattern expected.
 File "implementation: LETOP WITH", line 1, characters 5-9:
 Error: Syntax error
 File "implementation: LIDENT LESSMINUS OBJECT END WHILE", line 1, characters 21-26:
@@ -1692,8 +1684,8 @@ File "implementation: OBJECT LPAREN UNDERSCORE RPAREN COMMENT", line 1, characte
 Error: Syntax error: end expected
 File "implementation: OBJECT LPAREN UNDERSCORE RPAREN COMMENT", line 1, characters 0-6:
   This object might be unmatched
-File "implementation: OBJECT LPAREN UNDERSCORE WITH", line 1, characters 11-15:
-Error: Syntax error
+File "implementation: OBJECT LPAREN UNDERSCORE WITH", line 1, characters 0-2:
+Error: Syntax error: pattern expected.
 File "implementation: OBJECT LPAREN WITH", line 1, characters 9-13:
 Error: Syntax error
 File "implementation: OBJECT METHOD BANG LBRACKETAT AND RBRACKET WHILE", line 1, characters 25-30:

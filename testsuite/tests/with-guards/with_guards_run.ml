@@ -18,10 +18,12 @@ let alt x =
   | y with (A n | B n) = y when n > 0 -> n
   | _ -> -1
 
-(* Guards of both kinds, mixed. *)
+(* Guards of both kinds, mixed. A [when] guard comes after every
+   [with] guard. *)
 let mixed x =
   match x with
-  | y when y >= 0 with Some v = List.nth_opt [0; 1; 2] y when v > 0 -> v
+  | y with true = (y >= 0) with Some v = List.nth_opt [0; 1; 2] y
+     when v > 0 -> v
   | _ -> -1
 
 (* Nested [with] guards. *)
@@ -40,6 +42,15 @@ let reraised () =
     (try raise E1 with e with E2 = e -> "inner")
   with E1 -> "outer"
 
+(* Guards on the alternatives of an or-pattern. Every alternative must
+   bind the same variables, which is what the guard is for here. As it
+   cannot fail, the matching stays exhaustive. *)
+let alt2 x =
+  match x with
+  | A y
+  | B y
+  | C with y = -1 -> y
+
 let () =
   Printf.printf "%d %d\n" (eval ["a", 42] (Var "a")) (eval [] (Const 7));
   (try ignore (eval [] (Var "b")) with Failure m -> print_endline m);
@@ -50,5 +61,7 @@ let () =
   print_newline ();
   List.iter (fun x -> Printf.printf "%b " (nested x))
     [Some (Some 0); Some (Some 1); Some None; None];
+  print_newline ();
+  List.iter (fun x -> Printf.printf "%d " (alt2 x)) [A 3; B 4; C];
   print_newline ();
   print_endline (reraised ())

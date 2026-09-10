@@ -582,9 +582,19 @@ and pattern_or ctxt f x =
   in
   match left_associative x [] with
   | [] -> assert false
-  | [x] -> pattern1 ctxt f x
+  | [x] -> pattern_guarded ctxt f x
   | orpats ->
-      pp f "@[<hov0>%a@]" (list ~sep:"@ | " (pattern1 ctxt)) orpats
+      pp f "@[<hov0>%a@]" (list ~sep:"@ | " (pattern_guarded ctxt)) orpats
+
+(* [with] guards bind more tightly than [|] and less tightly than
+   everything below. *)
+and pattern_guarded ctxt f x =
+  if x.ppat_attributes <> [] then pattern ctxt f x
+  else match x.ppat_desc with
+    | Ppat_guarded (p, q, e) ->
+        pp f "@[<2>%a@;with@;%a@;=@;%a@]"
+          (pattern_guarded ctxt) p (pattern ctxt) q (expression ctxt) e
+    | _ -> pattern1 ctxt f x
 
 and pattern1 ctxt (f:Format.formatter) (x:pattern) : unit =
   if x.ppat_attributes <> [] then pattern ctxt f x
@@ -1876,8 +1886,6 @@ and extension_constructor ctxt f x =
 
 and guard ctxt f = function
   | Pguard_when g -> pp f "@;when@;%a" (expression ctxt) g
-  | Pguard_with (p, g) ->
-      pp f "@;with@;%a@;=@;%a" (pattern ctxt) p (expression ctxt) g
 
 and case_list ctxt f l : unit =
   let aux f {pc_lhs; pc_guards; pc_rhs} =

@@ -105,6 +105,11 @@ module General = struct
     | Tpat_array (am,ps) -> `Array (am, ps)
     | Tpat_or (p, q, row_desc) -> `Or (p, q, row_desc)
     | Tpat_lazy p -> `Lazy p
+    | Tpat_guarded _ ->
+       (* [with] guards are erased by [Parmatch.normalize_guards] before
+          the analyses of [Parmatch], and by [Translcore] before the
+          pattern-match compiler runs, so they never reach this view. *)
+       Misc.fatal_error "Patterns.General.view_desc: Tpat_guarded"
 
   let view p : pattern =
     { p with pat_desc = view_desc p.pat_desc }

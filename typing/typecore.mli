@@ -224,6 +224,7 @@ type error =
   | No_value_clauses
   | Exception_pattern_disallowed
   | Mixed_value_and_exception_patterns_under_guard
+  | Illegal_guard_position
   | Effect_pattern_below_toplevel
   | Invalid_continuation_pattern
   | Inlined_record_escape

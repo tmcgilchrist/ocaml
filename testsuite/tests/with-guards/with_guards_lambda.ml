@@ -39,13 +39,30 @@ let g x =
        (catch
          (catch
            (switch* x
-            case int 0: (exit 8)
-            case tag 0: (if (!= (field_imm 0 x) 1) (exit 8) (exit 6))
-            case tag 1: (if (!= (field_imm 0 x) 2) (exit 8) (exit 6)))
-          with (6) 0)
-        with (8) 1)))
+            case int 0: (exit 14)
+            case tag 0: (if (!= (field_imm 0 x) 1) (exit 14) (exit 11))
+            case tag 1: (if (!= (field_imm 0 x) 2) (exit 14) (exit 11)))
+          with (11) 0)
+        with (14) 1)))
   (apply (field_mut 1 (global Toploop!)) "g" g))
 val g : t -> int = <fun>
+|}]
+
+(* A guard on an alternative of an or-pattern selects the alternative
+   again in a nested match, so that a failing guard can resume with the
+   next alternative. *)
+
+let alt (Some x | None with x = 0) = x
+;;
+[%%expect{|
+(let
+  (alt =
+     (function param : int
+       (catch
+         (if param (exit 16 (field_imm 0 param)) (let (x = 0) (exit 16 x)))
+        with (16 x[int]) x)))
+  (apply (field_mut 1 (global Toploop!)) "alt" alt))
+val alt : int option -> int = <fun>
 |}]
 
 (* When a case has several guards, they jump to a common exit whose
@@ -53,7 +70,7 @@ val g : t -> int = <fun>
 
 let h x =
   match x with
-  | y when y >= 0 with Some v = Some y when v < 10 -> v
+  | y with true = (y >= 0) with Some v = Some y when v < 10 -> v
   | _ -> -1
 ;;
 [%%expect{|
@@ -61,13 +78,14 @@ let h x =
   (h =
      (function x[int] : int
        (catch
-         (if (>= x 0)
-           (let (*match* = (makeblock 0 (int) x))
-             (if *match*
-               (let (v =a (field_imm 0 *match*)) (if (< v 10) v (exit 13)))
-               (exit 13)))
-           (exit 13))
-        with (13) -1)))
+         (let (*match* = (>= x 0))
+           (if *match*
+             (let (*match* = (makeblock 0 (int) x))
+               (if *match*
+                 (let (v =a (field_imm 0 *match*)) (if (< v 10) v (exit 28)))
+                 (exit 28)))
+             (exit 28)))
+        with (28) -1)))
   (apply (field_mut 1 (global Toploop!)) "h" h))
 val h : int -> int = <fun>
 |}]

@@ -290,6 +290,10 @@ let pat
   | Tpat_or (p1, p2, _) ->
       sub.pat sub p1;
       sub.pat sub p2
+  | Tpat_guarded (p, q, e) ->
+      sub.pat sub p;
+      sub.pat sub q;
+      sub.expr sub e
 
 let extra sub = function
   | Texp_constraint cty -> sub.typ sub cty
@@ -666,7 +670,6 @@ let value_bindings sub (_, list) = List.iter (sub.value_binding sub) list
 
 let guard sub = function
   | Tguard_when e -> sub.expr sub e
-  | Tguard_with (p, e) -> sub.pat sub p; sub.expr sub e
 
 let case sub {c_lhs; c_guards; c_rhs; c_cont} =
   sub.pat sub c_lhs;

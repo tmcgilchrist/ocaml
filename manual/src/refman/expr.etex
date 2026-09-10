@@ -87,7 +87,6 @@ pattern-matching:
 ;
 guard:
     'when' expr
-  | 'with' pattern '=' expr  %since 5.6
 ;
 let-binding:
     pattern '=' expr
@@ -467,16 +466,15 @@ let rec repeat f = function
   | _ -> raise (Invalid_argument "repeat");;
 \end{caml_example}
 
-\subsubsection*{sss:with-guards}{"with" guards in pattern-matchings}
+\subsubsection*{sss:with-guards}{Guarded patterns}
 \ikwd{with\@\texttt{with}}
 
-A case can also be guarded by a @"with"@ guard, written
-@"with" pattern "=" expr@, which succeeds when the value of @expr@
-matches @pattern@ instead of when a condition evaluates to "true".
-The variables bound by @pattern@ are in scope in the guards that follow
-and in the right-hand side of the case. If the value of @expr@ does not
-match @pattern@, the guard fails and the matching is resumed against the
-following patterns, as for a @"when"@ guard that evaluates to "false".
+A case can also be selected on the result of matching an expression
+against a pattern, rather than on a condition. This is written
+@pattern "with" pattern "=" expr@ and belongs to the pattern of the
+case rather than to the case itself, so that it can be attached to a
+single alternative of an ``or'' pattern; see
+section~\ref{sss:pat-with}.
 
 \begin{caml_example}{toplevel}
 type expr = Var of string | Const of int;;
@@ -488,20 +486,19 @@ let eval env e =
 eval ["a", 1] (Var "a");;
 \end{caml_example}
 
-A case may carry any number of guards of either kind; they are tried
-from left to right and the case is selected only if all of them succeed.
+A @"when"@ guard belongs to the case as a whole and cannot be attached
+to a single pattern, so it comes after every @"with"@ guard of the
+case. A condition can be checked as part of the pattern by matching it
+against @"true"@:
 
 \begin{caml_example}{toplevel}
 let nth_positive l n =
   match n with
-  | n when n >= 0 with Some v = List.nth_opt l n when v > 0 -> Some v
+  | n with true = (n >= 0) with Some v = List.nth_opt l n
+     when v > 0 -> Some v
   | _ -> None;;
 nth_positive [0; 1; 2] 2, nth_positive [0; 1; 2] 0;;
 \end{caml_example}
-
-The pattern of a @"with"@ guard is not required to be exhaustive, and a
-case carrying a guard never contributes to the exhaustiveness of the
-whole matching. It may not bind modules or existential types.
 
 \subsubsection*{sss:expr-localdef}{Local definitions}
 

@@ -292,6 +292,13 @@ and pattern_desc =
          *)
   | Ppat_array of pattern list  (** Pattern [[| P1; ...; Pn |]] *)
   | Ppat_or of pattern * pattern  (** Pattern [P1 | P2] *)
+  | Ppat_guarded of pattern * pattern * expression
+      (** Pattern [P with Q = E].
+
+          It matches the values matched by [P] whose accompanying value
+          of [E] matches [Q]. [E] is evaluated in the scope of the
+          variables bound by [P], and the variables bound by [Q] are
+          added to those bound by the whole pattern. *)
   | Ppat_constraint of pattern * core_type  (** Pattern [(P : T)] *)
   | Ppat_type of Longident.t loc  (** Pattern [#tconst] *)
   | Ppat_lazy of pattern  (** Pattern [lazy P] *)
@@ -443,12 +450,10 @@ and expression_desc =
 
 and guard =
   | Pguard_when of expression  (** [when E] *)
-  | Pguard_with of pattern * expression  (** [with P = E] *)
 (** Values of type {!guard} are the guards of a {!case}. A [when] guard
-    succeeds when its expression evaluates to [true]. A [with] guard
-    succeeds when the value of its expression matches its pattern; the
-    variables bound by the pattern are then in scope in the guards that
-    follow and in the right-hand side of the case. *)
+    succeeds when its expression evaluates to [true]. Guards that match
+    against a pattern are written [with P = E] and belong to the pattern
+    of the case, see {!Ppat_guarded}. *)
 
 and case =
     {
@@ -456,9 +461,9 @@ and case =
      pc_guards: guard list;
      pc_rhs: expression;
    }
-(** Values of type {!case} represents [(P -> E)], [(P when E0 -> E)] or
-    [(P with P0 = E0 -> E)].  The guards are tried from left to right and
-    the case is selected only if all of them succeed. *)
+(** Values of type {!case} represents [(P -> E)] or [(P when E0 -> E)].
+    The guards are tried from left to right and the case is selected only
+    if all of them succeed. *)
 
 and letop =
   {

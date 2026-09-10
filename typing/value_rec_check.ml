@@ -1285,7 +1285,6 @@ and value_bindings : rec_flag -> Typedtree.value_binding list -> bind_judg =
 *)
 and guard : Typedtree.guard -> term_judg = function
   | Tguard_when e -> expression e
-  | Tguard_with (_, e) -> expression e
 
 and case
     : 'k . 'k Typedtree.case -> mode -> Env.t * mode
@@ -1298,18 +1297,27 @@ and case
     *)
     let judg = join (
         List.map (fun g -> guard g << Dereference) c_guards
+        @ pattern_guards c_lhs
         @ [ expression c_rhs ]
       ) in
-    (* The patterns of the [with] guards bind variables in the guards
-       that follow them and in the right-hand side. *)
-    let remove_guard_pats env =
-      List.fold_left (fun env g -> match g with
-        | Tguard_when _ -> env
-        | Tguard_with (p, _) -> remove_pat p env) env c_guards
-    in
     (fun m ->
-       let env = remove_guard_pats (judg m) in
+       let env = judg m in
        (remove_pat c_lhs env), Mode.compose m (pattern c_lhs env))
+
+(* The expressions of the [with] guards of a pattern are evaluated while
+   the pattern is being matched. The variables they bind are removed from
+   the environment along with the other variables of the pattern, as
+   [pat_bound_idents] includes them. *)
+and pattern_guards : type k . k Typedtree.general_pattern -> term_judg list =
+  fun p ->
+  match p.pat_desc with
+  | Tpat_guarded (p, q, e) ->
+      (expression e << Dereference) :: pattern_guards p @ pattern_guards q
+  | d ->
+      let acc = ref [] in
+      Typedtree.shallow_iter_pattern_desc
+        { f = (fun p -> acc := pattern_guards p @ !acc) } d;
+      !acc
 
 (* p : m -| G
    with output m and input G
@@ -1351,6 +1359,8 @@ and is_destructuring_pattern : type k . k general_pattern -> bool =
     | Tpat_exception _ -> false
     | Tpat_or (l,r,_) ->
         is_destructuring_pattern l || is_destructuring_pattern r
+    (* the guard expression is evaluated while matching *)
+    | Tpat_guarded _ -> true
 
 let is_valid_recursive_expression idlist expr : sd option =
   match expr.exp_desc with

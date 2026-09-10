@@ -5,12 +5,21 @@ Working version
 
 ### Language features:
 
-- #NNNNN: add a `with` syntax for pattern guards. The case
-  `p with q = e -> body` is selected when the scrutinee matches `p` and the
-  value of `e` matches `q`; the variables bound by `q` are in scope in `body`.
-  When `e` does not match `q` the matching resumes with the following cases,
-  as for a `when` guard that evaluates to `false`. A case may carry any
-  number of `when` and `with` guards, tried from left to right.
+- #NNNNN: add a `with` syntax for pattern guards. The pattern
+  `p with q = e` matches the values matched by `p` whose accompanying value
+  of `e` matches `q`; the variables bound by `q` are added to those bound by
+  the pattern. When `e` does not match `q`, the guard fails and the matching
+  resumes with the alternatives of the enclosing or-pattern and then with the
+  following cases, as for a `when` guard that evaluates to `false`. A guard
+  binds more tightly than `|`, so it can be attached to a single alternative
+  of an or-pattern, which is what lets the alternatives bind the same
+  variables:
+
+      let value_or_zero (Some x | None with x = 0) = x
+
+  A guard whose pattern is irrefutable cannot fail and does not make the
+  matching partial. A `when` guard belongs to the case as a whole and comes
+  after every `with` guard of that case.
   (Tim McGilchrist, review by )
 
 - #13377, RFC 44: Primitive aliases
@@ -445,7 +454,11 @@ Working version
   `Parsetree.guard` (resp. `Typedtree.guard`) values in the `pc_guards`
   (resp. `c_guards`) field of a case, instead of an `expression option` in
   the `pc_guard` (resp. `c_guard`) field. `Ast_helper.Exp.case` keeps its
-  `?guard` argument and gains a `?guards` one.
+  `?guard` argument and gains a `?guards` one. `with` guards are patterns,
+  represented by the new `Ppat_guarded` and `Tpat_guarded` constructors;
+  `Typedtree.strip_guards` and `Parmatch.has_refutable_guard` are the two
+  functions the analyses of `Parmatch` need to see through them, and
+  `Translcore` removes them before the pattern-match compiler runs.
   (Tim McGilchrist, review by )
 
 - #14241, #14824, #14945: Introduction of a typing recovery mechanism to

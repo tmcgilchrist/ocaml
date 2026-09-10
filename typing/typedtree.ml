@@ -84,6 +84,9 @@ and 'k pattern_desc =
   | Tpat_or :
       'k general_pattern * 'k general_pattern * row_desc option ->
       'k pattern_desc
+  | Tpat_guarded :
+      'k general_pattern * value general_pattern * expression ->
+      'k pattern_desc
 
 and tpat_value_argument = value general_pattern
 
@@ -165,7 +168,6 @@ and cont_desc =
 
 and guard =
   | Tguard_when of expression
-  | Tguard_with of pattern * expression
 
 and 'k case =
     {
@@ -740,6 +742,8 @@ let rec classify_pattern_desc : type k . k pattern_desc -> k pattern_category =
   | Tpat_value _ -> Computation
   | Tpat_exception _ -> Computation
 
+  | Tpat_guarded(p, _, _) -> classify_pattern p
+
   | Tpat_or(p1, p2, _) ->
      begin match classify_pattern p1, classify_pattern p2 with
      | Value, Value -> Value
@@ -770,6 +774,7 @@ let shallow_iter_pattern_desc
   | Tpat_value p -> f.f p
   | Tpat_exception p -> f.f p
   | Tpat_or(p1, p2, _) -> f.f p1; f.f p2
+  | Tpat_guarded(p, q, _) -> f.f p; f.f q
 
 type pattern_transformation =
   { f : 'k . 'k general_pattern -> 'k general_pattern }
@@ -797,6 +802,8 @@ let shallow_map_pattern_desc
   | Tpat_exception p -> Tpat_exception (f.f p)
   | Tpat_or (p1,p2,path) ->
       Tpat_or (f.f p1, f.f p2, path)
+  | Tpat_guarded (p, q, e) ->
+      Tpat_guarded (f.f p, f.f q, e)
 
 let rec iter_general_pattern
   : type k . pattern_action -> k general_pattern -> unit
@@ -927,16 +934,22 @@ let split_pattern pat =
         (* We could change the pattern type for exception patterns to
            [Predef.exn], but it doesn't really matter. *)
         combine_opts (into cpat) exns1 exns2
+    | Tpat_guarded (cp, q, e) ->
+        (* A case whose pattern mixes values and exceptions may not have
+           guards, see [Typecore.split_half_typed_cases], so at most one
+           of the two components is present here. *)
+        let guarded p = { cpat with pat_desc = Tpat_guarded (p, q, e) } in
+        let vals, exns = split_pattern cp in
+        Option.map guarded vals, Option.map guarded exns
   in
   split_pattern pat
 
-let guard_loc = function
-  | Tguard_when e -> e.exp_loc
-  | Tguard_with (p, e) -> { p.pat_loc with loc_end = e.exp_loc.loc_end }
-
-let guard_exp = function
-  | Tguard_when e -> e
-  | Tguard_with (_, e) -> e
+let rec strip_guards : type k . k general_pattern -> k general_pattern =
+  fun p ->
+  match p.pat_desc with
+  | Tpat_guarded (p, _, _) -> strip_guards p
+  | d ->
+      { p with pat_desc = shallow_map_pattern_desc { f = strip_guards } d }
 
 let map_apply_arg f = function
   | Arg arg -> Arg (f arg)

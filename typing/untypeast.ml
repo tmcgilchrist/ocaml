@@ -365,6 +365,8 @@ let pattern : type k . _ -> k T.general_pattern -> _ = fun sub pat ->
     | Tpat_exception p -> Ppat_exception (sub.pat sub p)
     | Tpat_value p -> (sub.pat sub (p :> pattern)).ppat_desc
     | Tpat_or (p1, p2, _) -> Ppat_or (sub.pat sub p1, sub.pat sub p2)
+    | Tpat_guarded (p, q, e) ->
+        Ppat_guarded (sub.pat sub p, sub.pat sub q, sub.expr sub e)
   in
   Pat.mk ~loc ~attrs desc
 
@@ -386,7 +388,6 @@ let exp_extra sub (extra, loc, attrs) sexp =
 
 let guard sub = function
   | Tguard_when e -> Pguard_when (sub.expr sub e)
-  | Tguard_with (p, e) -> Pguard_with (sub.pat sub p, sub.expr sub e)
 
 let case : type k . mapper -> k case -> _ = fun sub {c_lhs; c_guards; c_rhs} ->
   {

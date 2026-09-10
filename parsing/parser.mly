@@ -918,14 +918,15 @@ The precedences must be listed from low to high.
 %nonassoc SEMI                          /* below EQUAL ({lbl=...; lbl=...}) */
 %nonassoc LET                           /* above SEMI ( ...; let ... in ...) */
 %nonassoc below_WITH
-%nonassoc FUNCTION WITH                 /* below BAR  (match ... with ...) */
-%nonassoc AND             /* above WITH (module rec A: SIG with ... and ...) */
+%nonassoc FUNCTION                      /* below BAR  (function ... | ...) */
 %nonassoc THEN                          /* below ELSE (if ... then ...) */
 %nonassoc ELSE                          /* (if ... then ... else ...) */
 %nonassoc LESSMINUS                     /* below COLONEQUAL (lbl <- x := e) */
 %right    COLONEQUAL                    /* expr (e := e := e) */
 %nonassoc AS
 %left     BAR                           /* pattern (p|p|p) */
+%nonassoc WITH            /* above BAR (pattern (p | p with q = e)) */
+%nonassoc AND             /* above WITH (module rec A: SIG with ... and ...) */
 %nonassoc below_COMMA
 %left     COMMA                         /* expr/labeled_tuple (e,e,e) */
 %right    MINUSGREATER                  /* function_type (t -> t -> t) */
@@ -2501,9 +2502,9 @@ fun_expr:
       { let body_constraint = Option.map (fun x -> Pconstraint x) $4 in
         mkfunction $3 body_constraint $6, $2
       }
-  | MATCH ext_attributes seq_expr WITH match_cases
+  | MATCH ext_attributes seq_expr WITH match_cases %prec below_WITH
       { Pexp_match($3, $5), $2 }
-  | TRY ext_attributes seq_expr WITH match_cases
+  | TRY ext_attributes seq_expr WITH match_cases %prec below_WITH
       { Pexp_try($3, $5), $2 }
   | TRY ext_attributes seq_expr WITH error
       { syntax_error() }
@@ -2845,8 +2846,6 @@ match_case:
 guard:
     WHEN seq_expr
       { Pguard_when $2 }
-  | WITH pattern EQUAL seq_expr
-      { Pguard_with ($2, $4) }
 ;
 fun_param_as_list:
   | LPAREN TYPE ty_params = lident_list RPAREN
@@ -3048,7 +3047,11 @@ pattern_no_exn:
   | pattern_gen
       { $1 }
   | mkpat(
-      self AS mkrhs(val_ident)
+      self WITH pattern EQUAL seq_expr
+        { Ppat_guarded($1, $3, $5) }
+    | self WITH error
+        { expecting $loc($3) "pattern" }
+    | self AS mkrhs(val_ident)
         { Ppat_alias($1, $3) }
     | self AS error
         { expecting $loc($3) "identifier" }

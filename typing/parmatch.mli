@@ -121,6 +121,9 @@ val check_unused:
     (bool -> pattern -> pattern option) -> value typed_case list -> unit
 
 (* Irrefutability tests *)
+val has_refutable_guard : 'k general_pattern -> bool
+(** Whether the pattern carries a [with] guard that can fail. *)
+
 val irrefutable : pattern -> bool
 
 (** An inactive pattern is a pattern, matching against which can be duplicated,

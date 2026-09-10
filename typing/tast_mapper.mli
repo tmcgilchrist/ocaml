@@ -75,3 +75,11 @@ type mapper =
 
 
 val default: mapper
+
+val rename_guard_expressions:
+  (Ident.t * Ident.t) list -> 'k Typedtree.general_pattern ->
+  'k Typedtree.general_pattern
+(** [rename_guard_expressions env p] renames, in the expressions of the
+    [with] guards of [p], the occurrences of the variables listed in
+    [env]. It complements {!Typedtree.alpha_pat}, which renames the
+    binding occurrences but cannot reach inside those expressions. *)

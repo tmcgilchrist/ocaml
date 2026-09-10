@@ -171,6 +171,11 @@ let add_type_exception bv te =
 
 let pattern_bv = ref String.Map.empty
 
+(* A [with] guard puts an expression inside a pattern, but [add_expr] is
+   defined below; break the cycle with a forward reference, set at the
+   end of this file. *)
+let add_expr_fwd = ref (fun _bv _e -> ())
+
 let rec add_pattern bv pat =
   match pat.ppat_desc with
     Ppat_any -> ()
@@ -188,6 +193,8 @@ let rec add_pattern bv pat =
       List.iter (fun (lbl, p) -> add bv lbl; add_pattern bv p) pl
   | Ppat_array pl -> List.iter (add_pattern bv) pl
   | Ppat_or(p1, p2) -> add_pattern bv p1; add_pattern bv p2
+  | Ppat_guarded(p, q, e) ->
+      add_pattern bv p; !add_expr_fwd bv e; add_pattern bv q
   | Ppat_constraint(p, ty) -> add_pattern bv p; add_type bv ty
   | Ppat_variant(_, op) -> add_opt add_pattern bv op
   | Ppat_type li -> add bv li
@@ -303,7 +310,6 @@ and add_case bv {pc_lhs; pc_guards; pc_rhs} =
 
 and add_guard bv = function
   | Pguard_when g -> add_expr bv g; bv
-  | Pguard_with (p, g) -> add_expr bv g; add_pattern bv p
 
 and add_bindings recf bv pel =
   let bv' = List.fold_left (fun bv x -> add_pattern bv x.pvb_pat) bv pel in
@@ -646,3 +652,5 @@ and add_class_field bv pcf =
 
 and add_class_declaration bv decl =
   add_class_expr bv decl.pci_expr
+
+let () = add_expr_fwd := add_expr

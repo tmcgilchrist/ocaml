@@ -593,6 +593,8 @@ module P = struct
                (List.map (map_tuple (map_loc_lid sub) (sub.pat sub)) lpl) cf
     | Ppat_array pl -> array ~loc ~attrs (List.map (sub.pat sub) pl)
     | Ppat_or (p1, p2) -> or_ ~loc ~attrs (sub.pat sub p1) (sub.pat sub p2)
+    | Ppat_guarded (p, q, e) ->
+        guarded ~loc ~attrs (sub.pat sub p) (sub.pat sub q) (sub.expr sub e)
     | Ppat_constraint (p, t) ->
         constraint_ ~loc ~attrs (sub.pat sub p) (sub.typ sub t)
     | Ppat_type s -> type_ ~loc ~attrs (map_loc_lid sub s)
@@ -867,8 +869,6 @@ let default_mapper =
       (fun this g ->
          match g with
          | Pguard_when e -> Pguard_when (this.expr this e)
-         | Pguard_with (p, e) ->
-             Pguard_with (this.pat this p, this.expr this e)
       );
 
 

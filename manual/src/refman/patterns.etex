@@ -10,6 +10,7 @@ pattern:
   | '(' pattern ')'
   | '(' pattern ':' typexpr ')'
   | pattern '|' pattern
+  | pattern 'with' pattern '=' expr  %since 5.6
   | constr pattern
   | "`"tag-name pattern
   | "#"typeconstr
@@ -45,6 +46,7 @@ higher precedences come first.
 \entree{Constructor application, Tag application}{right}
 \entree{"::"}{right}
 \entree{","}{--}
+\entree{"with" (see section~\ref{sss:pat-with})}{--}
 \entree{"|"}{left}
 \entree{"as"}{--}
 \end{tableau}
@@ -146,6 +148,50 @@ type shape = Square of float | Rect of (float * float) | Circle of float
 let is_rectangular = function
   | Square _ | Rect _ -> true
   | Circle _ -> false;;
+\end{caml_example}
+
+\subsubsection*{sss:pat-with}{Guarded patterns}
+\ikwd{with\@\texttt{with}}
+
+The pattern @pattern_1 "with" pattern_2 "=" expr@ matches the values
+that match @pattern_1@ and whose accompanying value of @expr@ matches
+@pattern_2@. The expression @expr@ is evaluated in the scope of the
+identifiers bound by @pattern_1@, and the identifiers bound by
+@pattern_2@ are added to those bound by the whole pattern.
+
+If the value of @expr@ does not match @pattern_2@, the guard fails and
+the pattern does not match, exactly as if @pattern_1@ had not matched.
+In particular, the matching then resumes with the alternatives of the
+enclosing ``or'' pattern, and then with the following cases.
+
+A guard binds more tightly than @"|"@, so it applies to the alternative
+of an ``or'' pattern that it follows. This is what allows the
+alternatives of an ``or'' pattern to bind the same identifiers when
+only some of them are available in each:
+
+\begin{caml_example}{toplevel}
+type shape2 = Square of float | Rect of float * float
+
+let dimensions = function
+  | Square w with h = w
+  | Rect (w, h) -> (w, h);;
+\end{caml_example}
+
+Parenthesise the alternatives to attach a guard to several of them at
+once. A guard may only appear on the pattern of a case of a
+@"function"@, @"match"@ or @"try"@ construct, on the pattern of a
+function parameter, or on the alternatives of an ``or'' pattern in
+such a position; it is rejected elsewhere, as there would be nothing
+to resume the matching with.
+
+Guards being able to fail, a case whose pattern carries one that can
+fail does not contribute to the exhaustiveness of the matching, just
+like a case with a @"when"@ guard. A guard whose pattern is irrefutable
+cannot fail and is ignored by that check, so the following definition
+is exhaustive:
+
+\begin{caml_example}{toplevel}
+let value_or_zero (Some x | None with x = 0) = x;;
 \end{caml_example}
 
 \subsubsection*{sss:pat-variant}{Variant patterns}

@@ -156,6 +156,15 @@ and 'k pattern_desc =
             [row_desc] = [Some _] when translating [Ppat_type _],
                          [None] otherwise.
          *)
+  | Tpat_guarded :
+      'k general_pattern * value general_pattern * expression ->
+      'k pattern_desc
+        (** P with Q = E
+
+            Matches the values matched by [P] whose accompanying value of
+            [E] matches [Q]. [E] is evaluated in the scope of the
+            variables bound by [P].
+         *)
 
 and tpat_value_argument = private value general_pattern
 
@@ -314,7 +323,6 @@ and cont_desc =
 
 and guard =
   | Tguard_when of expression  (** [when E] *)
-  | Tguard_with of pattern * expression  (** [with P = E] *)
 
 and 'k case =
     {
@@ -967,11 +975,10 @@ val pat_bound_idents_full:
 val split_pattern:
   computation general_pattern -> pattern option * pattern option
 
-val guard_loc: guard -> Location.t
-(** The location of a guard, excluding its leading keyword. *)
-
-val guard_exp: guard -> expression
-(** The expression scrutinised by a guard. *)
+val strip_guards: 'k general_pattern -> 'k general_pattern
+(** Remove the [with] guards of a pattern, keeping the guarded
+    sub-patterns but dropping the bindings they introduce. The result
+    matches at least the values matched by the argument. *)
 
 val map_apply_arg:
   ('a -> ' b) -> ('a, 'omitted) arg_or_omitted ->  ('b, 'omitted) arg_or_omitted

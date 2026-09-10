@@ -3466,6 +3466,9 @@ let rec event_branch repr lam =
   | Llet (str, k, id, lam, body), _ ->
       Llet (str, k, id, lam, event_branch repr body)
   | Lstaticraise _, _ -> lam
+  (* the action of a case whose pattern carries [with] guards; its body
+     already carries the event, inside the handler it jumps to *)
+  | Lstaticcatch _, _ -> lam
   | _, Some _ ->
       fatal_errorf "Matching.event_branch: %a" Printlambda.lambda lam
 
@@ -4098,9 +4101,13 @@ let for_handler ~scopes loc param cont pat_act_list =
     ~failer:(Reperform_noloc [param; cont])
     None param pat_act_list Partial
 
-let for_guard ~scopes loc ~failure param pat_act_list =
-  compile_matching ~scopes loc ~failer:(Guard_failure failure)
-    None param pat_act_list Partial
+let for_guard ~scopes loc ?failure param pat_act_list =
+  let failer =
+    match failure with
+    | Some failure -> Guard_failure failure
+    | None -> Raise_match_failure
+  in
+  compile_matching ~scopes loc ~failer None param pat_act_list Partial
 
 let simple_for_let ~scopes loc param pat body =
   compile_matching ~scopes loc ~failer:Raise_match_failure

@@ -33,11 +33,13 @@ val for_handler:
         lambda -> lambda -> (pattern * lambda) list ->
         lambda
 
-(** [for_guard ~failure] compiles the matching performed by a [with]
+(** [for_guard ?failure] compiles the matching performed by a [with]
     pattern guard: when the argument matches none of the patterns, the
-    guard fails and [failure] is run instead. *)
+    guard fails and [failure] is run instead. Omitting [failure] states
+    that the argument always matches one of the patterns; [Match_failure]
+    is raised if it does not. *)
 val for_guard:
-        scopes:scopes -> Location.t -> failure:lambda ->
+        scopes:scopes -> Location.t -> ?failure:lambda ->
         lambda -> (pattern * lambda) list ->
         lambda
 

@@ -332,6 +332,8 @@ let pat
        Tpat_exception (sub.pat sub p)
     | Tpat_or (p1, p2, rd) ->
         Tpat_or (sub.pat sub p1, sub.pat sub p2, rd)
+    | Tpat_guarded (p, q, e) ->
+        Tpat_guarded (sub.pat sub p, sub.pat sub q, sub.expr sub e)
   in
   let pat_attributes = sub.attributes sub x.pat_attributes in
   {x with pat_loc; pat_extra; pat_desc; pat_env; pat_attributes}
@@ -873,7 +875,6 @@ let value_bindings sub (rec_flag, list) =
 
 let guard sub = function
   | Tguard_when e -> Tguard_when (sub.expr sub e)
-  | Tguard_with (p, e) -> Tguard_with (sub.pat sub p, sub.expr sub e)
 
 let case
   : type k . mapper -> k case -> k case
@@ -944,3 +945,40 @@ let default =
     primitive_description;
     with_constraint;
   }
+
+(* [Typedtree.alpha_pat] renames the variables a pattern binds, but it
+   cannot reach the occurrences of those variables in the expressions of
+   the [with] guards of that pattern. Rename them here. Identifiers are
+   unique after typing, so a substitution keyed by identifier cannot
+   capture. *)
+let rename_guard_expressions env p =
+  if env = [] then p
+  else
+    let expr sub e =
+      let e = default.expr sub e in
+      match e.exp_desc with
+      | Texp_ident (Path.Pident id, lid, desc) ->
+          begin match List.assoc_opt id env with
+          | None -> e
+          | Some id' ->
+              (* [Translcore] resolves an identifier through the
+                 environment of the expression it occurs in, so the new
+                 name has to be bound there too. *)
+              { e with
+                exp_desc = Texp_ident (Path.Pident id', lid, desc);
+                exp_env = Env.add_value id' desc e.exp_env }
+          end
+      | _ -> e
+    in
+    let sub = { default with expr } in
+    let rec rename : type k . k general_pattern -> k general_pattern =
+      fun p ->
+      match p.pat_desc with
+      | Tpat_guarded (p1, q, e) ->
+          { p with
+            pat_desc = Tpat_guarded (rename p1, rename q, sub.expr sub e) }
+      | d ->
+          { p with
+            pat_desc = Typedtree.shallow_map_pattern_desc { f = rename } d }
+    in
+    rename p
