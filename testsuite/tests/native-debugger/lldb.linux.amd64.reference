@@ -11,8 +11,12 @@ Breakpoint created for regex caml_start_program.
 Breakpoint created for regex caml_program.
 (lldb) create camlMeander[.$]c_to_ocaml*
 Breakpoint created for regex camlMeander[.$]c_to_ocaml*.
-(lldb) create ocaml_to_c
-Breakpoint created for regex ocaml_to_c.
+(lldb) create ^ocaml_to_c$
+Breakpoint created for regex ^ocaml_to_c$.
+(lldb) create camlMeander[.$]on_fiber*
+Breakpoint created for regex camlMeander[.$]on_fiber*.
+(lldb) create camlMeander[.$]on_perform*
+Breakpoint created for regex camlMeander[.$]on_perform*.
 (lldb) run
 Process XXXX launched: 'XXXX' ($ARCH)
 Process XXXX stopped
@@ -76,15 +80,15 @@ frame X: meander`_start
 Process XXXX resuming
 Process XXXX stopped
 * thread #1, name = 'XXXX', stop reason = breakpoint 3.1
-    frame #0: 0x00000000000000 meander`camlMeander.c_to_ocaml at meander.ml:5:20
-   2   	         : unit -> int = "ocaml_to_c"
-   3   	exception E1
-   4   	exception E2
--> 5   	let c_to_ocaml () = raise E1
+    frame #0: 0x00000000000000 meander`camlMeander.c_to_ocaml at meander.ml:9:20
+   6   	         : unit -> int = "ocaml_to_c"
+   7   	exception E1
+   8   	exception E2
+-> 9   	let c_to_ocaml () = raise E1
     	                   ^
-   6   	let _ = Callback.register
-   7   	          "c_to_ocaml" c_to_ocaml
-   8   	let omain () =
+   10  	let _ = Callback.register
+   11  	          "c_to_ocaml" c_to_ocaml
+   12  	let omain () =
 (lldb) backtrace
 frame X: meander`camlMeander.c_to_ocaml
 frame X: meander`caml_start_program
@@ -93,6 +97,60 @@ frame X: meander`caml_callback
 frame X: meander`ocaml_to_c
 frame X: meander`caml_c_call
 frame X: meander`camlMeander.omain
+frame X: meander`camlMeander.entry
+frame X: meander`caml_program
+frame X: meander`caml_start_program
+frame X: meander`caml_startup_common
+frame X: meander`caml_startup_common
+frame X: meander`caml_startup
+frame X: meander`caml_main
+frame X: meander`main
+frame X: libc.so.6`__libc_start_call_main
+frame X: libc.so.6`__libc_start_mainXXXX
+frame X: meander`_start
+(lldb) continue
+Process XXXX resuming
+Process XXXX stopped
+* thread #1, name = 'XXXX', stop reason = breakpoint 5.1
+    frame #0: 0x00000000000000 meander`camlMeander.on_fiber at meander.ml:21:2
+   18
+   19  	(* Test caml_runstack: run function on a new fiber stack *)
+   20  	let[@inline never] on_fiber () =
+-> 21  	  Sys.opaque_identity 42
+    	 ^
+   22
+   23  	let () =
+   24  	  let result = match_with on_fiber ()
+(lldb) backtrace
+frame X: meander`camlMeander.on_fiber
+frame X: meander`caml_runstack
+frame X: meander`camlMeander.entry
+frame X: meander`caml_program
+frame X: meander`caml_start_program
+frame X: meander`caml_startup_common
+frame X: meander`caml_startup_common
+frame X: meander`caml_startup
+frame X: meander`caml_main
+frame X: meander`main
+frame X: libc.so.6`__libc_start_call_main
+frame X: libc.so.6`__libc_start_mainXXXX
+frame X: meander`_start
+(lldb) continue
+Process XXXX resuming
+Process XXXX stopped
+* thread #1, name = 'XXXX', stop reason = breakpoint 6.1
+    frame #0: 0x00000000000000 meander`camlMeander.on_perform at meander.ml:35:2
+   32  	type _ Effect.t += Yield : unit Effect.t
+   33
+   34  	let[@inline never] on_perform () =
+-> 35  	  Sys.opaque_identity 99
+    	 ^
+   36
+   37  	let[@inline never] performer () =
+   38  	  Effect.perform Yield;
+(lldb) backtrace
+frame X: meander`camlMeander.on_perform
+frame X: meander`caml_runstack
 frame X: meander`camlMeander.entry
 frame X: meander`caml_program
 frame X: meander`caml_start_program

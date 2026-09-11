@@ -4,8 +4,20 @@ source gdb_test.py
 break_start_program
 break caml_program
 break ocaml_to_c
-break meander.ml:5
+break meander.ml:9
+break meander.ml:21
+break meander.ml:35
+break ocaml_to_c_many
+break ocaml_to_c_noalloc
 run
+print_backtrace
+continue
+print_backtrace
+continue
+print_backtrace
+continue
+print_backtrace
+continue
 print_backtrace
 continue
 print_backtrace
