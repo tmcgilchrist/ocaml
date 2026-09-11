@@ -515,12 +515,21 @@ Event indicating that a fork has occurred and the current domain is the child.
 (**
 Event indicating that a new domain has been spawned. Includes the PID of the
 new domain as an argument.
+
+Not emitted for the initial domain, which is already running when the program
+starts and so is not created by {!Domain.spawn}. A domain spawned before
+runtime events were enabled has no such event in the ring either, so a
+consumer pairing this event with [EV_DOMAIN_TERMINATE] should expect
+terminations that it cannot match.
 @since 5.0
 *)
 | EV_DOMAIN_TERMINATE
 (**
 Event indicating that a domain has terminated. Includes the PID of the domain
 as an argument.
+
+Not emitted for the initial domain. Its lifetime is that of the program, which
+is delimited by [EV_RING_START] and [EV_RING_STOP] instead.
 @since 5.0
 *)
 
