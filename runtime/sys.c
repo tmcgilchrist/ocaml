@@ -54,6 +54,7 @@
 #include "caml/fail.h"
 #include "caml/gc_ctrl.h"
 #include "caml/major_gc.h"
+#include "caml/minor_gc.h"
 #include "caml/io.h"
 #include "caml/mlvalues.h"
 #include "caml/osdeps.h"
@@ -137,6 +138,14 @@ CAMLexport void caml_do_exit(int retcode)
   caml_domain_state* domain_state = Caml_state;
   struct gc_stats s;
 
+  /* These words are never collected, so no minor collection reports them,
+     but the statistics below do count them. Report them here to keep the two
+     in agreement. With [cleanup_on_exit] the collection in
+     [caml_domain_terminate] reports them instead. */
+  if (!caml_params->cleanup_on_exit)
+    caml_ev_minor_allocated((uintnat)domain_state->young_end
+                            - (uintnat)domain_state->young_ptr);
+
   if ((atomic_load_relaxed(&caml_verb_gc) & CAML_GC_MSG_STATS) != 0) {
     caml_compute_gc_stats(&s);
     {
@@ -185,14 +194,13 @@ CAMLexport void caml_do_exit(int retcode)
 #endif
   if (caml_params->cleanup_on_exit)
     caml_shutdown();
-
   /* Tear down runtime_events as late as we can, so that events emitted during
      shutdown are recorded. When [cleanup_on_exit] is set this has already been
      done by [caml_domain_terminate], which is later still and is the last
      point at which this domain can take part in the stop-the-world that the
-     teardown needs. The call is a no-op if that has happened; it is reached
-     when [caml_shutdown] did not run, or returned early because other domains
-     were still active. */
+     teardown needs. The call is then a no-op. It does the work when
+     [caml_shutdown] did not run, or returned early because other domains were
+     still active. */
   CAML_RUNTIME_EVENTS_DESTROY();
 #ifdef _WIN32
   caml_restore_win32_terminal();
