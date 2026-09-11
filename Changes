@@ -18,11 +18,9 @@ Working version
 
 ### Runtime system:
 
-- #?????: Tear down the runtime events ring buffers at the end of
-  caml_domain_terminate rather than in caml_do_exit, so that events emitted
-  while the program shuts down are recorded. EV_DOMAIN_TERMINATE is no longer
-  emitted for the initial domain, whose lifetime is delimited by EV_RING_START
-  and EV_RING_STOP, and which emits no EV_DOMAIN_SPAWN.
+- #?????: Record runtime events emitted while the program shuts down, and
+  report the minor heap allocation outstanding at exit. EV_DOMAIN_TERMINATE is
+  no longer emitted for the initial domain.
   (Tim McGilchrist, review by ???)
 
 - #14773 : Activate Haiku native backend
