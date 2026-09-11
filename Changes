@@ -145,8 +145,8 @@ Working version
   respectively `--disable-largefile` and `--disable-year2038` to configure.
   (Antonin Décimo, review by Miod Vallat)
 
-- #15019: `Marshal.from_{string,bytes}`: guard against overflow in
-  the computation of the total data length.
+- #15019, #15030, OSEC-2026-18: `Marshal.from_{string,bytes}`: guard against
+  overflow in the computation of the total data length.
   (Xavier Leroy, report by Akshay Singh, review by Nicolás Ojeda Bär
   and Antonin Décimo)
 
@@ -205,6 +205,9 @@ Working version
   (Zane Hambly, review by         )
 
 - #15005: riscv: emit `fsqrt.d` for square root rather than calling into C
+  (Zane Hambly, review by Miod Vallat and Xavier Leroy)
+
+- #15006: power: emit `fsqrt` for square root rather than calling into C
   (Zane Hambly, review by Miod Vallat and Xavier Leroy)
 
 - #15008: emit the fused multiply-add for `Float.fma` on arm64, power,
@@ -337,18 +340,28 @@ Working version
   (Fabian Hemmer, suggestion by Daniel Bünzli, review by Daniel Bünzli and
   Nicolás Ojeda Bär)
 
+- #15009: Improve Set.union, Set.inter, and Set.diff on physically shared sets,
+  avoiding unnecessary traversal and allocations and preserving sharing when the
+  result is unchanged.
+  (Nicolás Ojeda Bär, review by Vincent Laviron and Olivier Nicole)
+
 ### Other libraries:
+
+- #14740: Various fixes in libunix. Fix compilation failures if gethostname or
+  IPv6 are not available. Add blocking sections to the wrappers of realpath and
+  lockf. Fix missing root registration.
+  (Antonin Décimo, review by Gabriel Scherer)
+
+- #14764: Fix a bug in the Win32 implementation of the `Unix` library that could
+  result in some file descriptors being dropped from the result of `Unix.select`
+  under certain circumstances.
+  (Zhang Rui, review by Nicolás Ojeda Bär, Antonin Décimo and David Allsopp)
 
 * #14788: The Win32 error code `ERROR_DIRECTORY` (= 267) is now mapped to
   `ENOTDIR` instead of `EUNKNOWNERR(-267)` when raised by functions in the
   `Unix` module (eg `Unix.opendir`).
   (Nicolás Ojeda Bär, report by Adrián Montesinos González, review by Gabriel
   Scherer)
-
-- #14764: Fix a bug in the Win32 implementation of the `Unix` library that could
-  result in some file descriptors being dropped from the result of `Unix.select`
-  under certain circumstances.
-  (Zhang Rui, review by Nicolás Ojeda Bär, Antonin Décimo and David Allsopp)
 
 - #14984: Cache one write buffer for each domain in
   `Runtime_events.User.write`, instead of a list for each thread. A write of
@@ -600,6 +613,13 @@ Working version
 - #14969: Fix the units of the runtime events counter EV_C_MINOR_ALLOCATED_WORDS
   to report as the number of words of minor heap consumed, including headers.
   (Tim McGilchrist, review by Nicolás Ojeda Bär)
+
+- #14605, #?????: On POWER, fix a TSan fatal error and corrupted
+  backtraces when a C call takes more arguments than fit in registers, and
+  a segfault when a fiber completes after an effect was handled on its
+  parent stack.
+  (Tim McGilchrist and Miod Vallat, reported by KC Sivaramakrishnan,
+   reviews by ?????)
 
 OCaml 5.5.1
 -----------
