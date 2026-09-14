@@ -614,6 +614,13 @@ Working version
   to report as the number of words of minor heap consumed, including headers.
   (Tim McGilchrist, review by Nicolás Ojeda Bär)
 
+- #14605, #?????: On POWER, fix a TSan fatal error and corrupted
+  backtraces when a C call takes more arguments than fit in registers, and
+  a segfault when a fiber completes after an effect was handled on its
+  parent stack.
+  (Tim McGilchrist and Miod Vallat, reported by KC Sivaramakrishnan,
+   reviews by ?????)
+
 OCaml 5.5.1
 -----------
 
