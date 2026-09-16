@@ -157,7 +157,18 @@ void caml_runtime_events_init(void) {
 /* teardown the ring buffers. This must be called from a stop-the-world
    unless we are sure there is only a single domain running (e.g after a fork)
 */
-static void runtime_events_teardown_from_stw_single(int remove_file) {
+static void runtime_events_teardown_from_stw_single(int remove_file, int emitted_stw_leader) {
+  if (emitted_stw_leader) {
+    /*
+     * The caller has already emitted a CAML_EV_BEGIN(EV_STW_LEADER),
+     * i.e. not called from the fork handler.
+     *
+     * We are shutting down the ring here, so any further CAML_EV* will get dropped.
+     * Emit an explicit end here to avoid unclosed events
+     * (although this'll be slightly earlier than the real end)
+     */
+    CAML_EV_END(EV_STW_LEADER);
+  }
 #ifdef _WIN32
     UnmapViewOfFile(current_metadata);
     CloseHandle(ring_file_handle);
@@ -193,7 +204,7 @@ void caml_runtime_events_post_fork(void) {
     existing runtime_events from the parent. In doing so we need to make sure we
     don't remove the runtime_events file itself as that may still be used by
     the parent. */
-    runtime_events_teardown_from_stw_single(0 /* don't remove the file */);
+    runtime_events_teardown_from_stw_single(0 /* don't remove the file */, 0);
     /* stw_single: mutators and domains have not started after the fork yet. */
 
     /* We still have the path and ring size from our parent */
@@ -441,7 +452,7 @@ static void stw_teardown_runtime_events(
 {
   Caml_global_barrier_if_final(num_participating) {
     int remove_file = *(int*)remove_file_data;
-    runtime_events_teardown_from_stw_single(remove_file);
+    runtime_events_teardown_from_stw_single(remove_file, 1 /* emitted STW_LEADER */);
   }
 }
 
