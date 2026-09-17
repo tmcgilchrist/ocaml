@@ -448,6 +448,12 @@ Working version
   (Jeanne Pottier, review by Florian Angeletti, Gabriel Scherer
   and Daniel Bünzli)
 
+- #?????: Document the OCAMLRUNPARAM `X` option for named GC tweaks, and the
+  bounds on `d`, in both the manual and the ocamlrun man page. Bring the man
+  page into line with the manual on `b`, which takes an argument, and on the
+  handling of commas.
+  (Tim McGilchrist, review by ????)
+
 ### Compiler user-interface and warnings:
 - #14887: More concise messages for the non-exhaustiveness warning.
   (Luc Maranget, review by Florian Angeletti)
