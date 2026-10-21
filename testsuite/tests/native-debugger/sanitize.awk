@@ -50,6 +50,8 @@
 
     # Work around inconsistent name mangling
     gsub(/c_to_ocaml_[0-9]+/, "c_to_ocaml")
+    gsub(/on_fiber_[0-9]+/, "on_fiber")
+    gsub(/on_perform_[0-9]+/, "on_perform")
 
     # Work around symbol versioning
     gsub(/__libc_start_main_impl$/, "__libc_start_mainXXXX")
