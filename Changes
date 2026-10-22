@@ -67,6 +67,9 @@ Working version
   (Tim McGilchrist, reported by Edwin Török, review by Edwin Török, Antonin
    Décimo and Olivier Nicole)
 
+- #15186: Fix Windows Unix.LargeFile.lseek to read int64 offset as Int64_val.
+  (Tim McGilchrist, review by ????)
+
 OCaml 5.6.0
 -----------
 
