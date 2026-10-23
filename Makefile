@@ -1017,10 +1017,9 @@ ocaml_CMO_FILES = toplevel/topstart.cmo
 
 $(eval $(call PROGRAM_SYNONYM,ocaml))
 
-ocaml$(EXE): OC_BYTECODE_LINKFLAGS += -I toplevel/byte -linkall -g
 ocaml$(EXE): $(expunge) $(ocaml_CMA_FILES) $(ocaml_CMO_FILES)
-	$(V_LINKC)$(LINK_BYTECODE_PROGRAM) -o $@.tmp \
-	  $(ocaml_CMA_FILES) $(ocaml_CMO_FILES)
+	$(V_LINKC)$(LINK_BYTECODE_PROGRAM) -I toplevel/byte -linkall -g \
+	  -o $@.tmp $(ocaml_CMA_FILES) $(ocaml_CMO_FILES)
 	- $(V_GEN)$(OCAMLRUN) $(expunge) $@.tmp $@ $(PERVASIVES)
 	rm -f $@.tmp
 
