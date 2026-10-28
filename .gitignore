@@ -37,6 +37,7 @@ _ocamltest
 _ocamltestd
 *.odoc
 .merlin
+/_merlin
 _build
 META
 # Ignore foo.depend, but not .depend

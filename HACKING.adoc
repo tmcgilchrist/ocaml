@@ -468,6 +468,79 @@ third-party code, by installing a local <<opam-switch,opam switch>>: opam
 packages tend to be compatible with released versions of the compiler, whereas
 most packages are incompatible with the in-progress development version.
 
+==== Using merlin with `make merlin`
+
+Alternatively, `make merlin` writes a `.merlin` file in each source directory.
+When the compiler of the tree is incompatible with your merlin, it type-checks
+the sources with your OCaml compiler into `_merlin/`, without touching the
+build. Files that the older compiler cannot type-check (for instance because
+they use a new primitive) are reported and skipped, but merlin still gets
+partial information about them. `make merlin` also writes an index of
+occurrences with `ocaml-index`, for find-references across the whole tree.
+
+1. Create an opam switch with the latest released OCaml, and install
+   `merlin`, `dot-merlin-reader`, `ocaml-index` and `ocaml-lsp-server`.
+2. If you use ocaml-lsp-server, it must be started with `--prefer-dot-merlin`,
+   otherwise it asks dune for its configuration, because of the
+   `dune-project` at the root, and ignores the `.merlin` files. It must also
+   be the one from the switch above. With Emacs, eglot and neocaml, a local
+   `.dir-locals.el` can do both (replace `5.5.0` with your switch):
++
+[source,elisp]
+----
+;; Run the ocamllsp of the switch that `make merlin' uses (merlin can only
+;; read .cmt files of its own OCaml version), and make it read the .merlin
+;; files instead of asking dune because of the dune-project at the root.
+((neocaml-base-mode
+  . ((eglot-server-programs
+      . ((((neocaml-mode :language-id "ocaml")
+           (neocaml-interface-mode :language-id "ocaml.interface"))
+          "opam" "exec" "--switch=5.5.0" "--"
+          "ocamllsp" "--prefer-dot-merlin"))))))
+----
++
+Alternatively, with direnv and envrc.el (`envrc-global-mode`), select the
+switch in a `.envrc`, so that the shell running `make merlin` and the Emacs
+buffers use the same switch:
++
+[source,sh]
+----
+# .envrc (run `direnv allow`, or M-x envrc-allow)
+eval $(opam env --switch=5.5.0)
+----
++
+and `.dir-locals.el` only adds the flag, since envrc.el gives the buffers the
+environment of the switch, which eglot starts ocamllsp with:
++
+[source,elisp]
+----
+;; Make ocamllsp read the .merlin files written by `make merlin', instead of
+;; asking dune because of the dune-project at the root. The switch, which
+;; must be the one `make merlin' uses, comes from .envrc (envrc-mode).
+((neocaml-base-mode
+  . ((eglot-server-programs
+      . ((((neocaml-mode :language-id "ocaml")
+           (neocaml-interface-mode :language-id "ocaml.interface"))
+          "ocamllsp" "--prefer-dot-merlin"))))))
+----
++
+If the server starts from the wrong switch, the `.envrc` is probably not
+allowed yet.
+3. Run `./configure` if not already done, then `make merlin` from a shell
+   where the switch is selected (or pass `MERLIN_OCAMLC=...`). A build with
+   `make` is not needed, and the two can be used side by side, one after the
+   other. The first run takes from about 10 to 30 seconds, later runs only
+   redo what changed.
+4. Open an OCaml source file and start the language server.
+5. Run `make merlin` again:
+   - after changing an `.mli`, or an `.ml` without one;
+   - after `make depend`;
+   - after switching branches or pulling;
+   - before a find-references search if you have edited other files, since
+     their uses are otherwise left out.
+
+`make clean-merlin` removes `_merlin/` and the `.merlin` files.
+
 
 === License
 

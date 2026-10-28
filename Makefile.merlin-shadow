@@ -1,0 +1,212 @@
+#**************************************************************************
+#*                                                                        *
+#*                                 OCaml                                  *
+#*                                                                        *
+#*   All rights reserved.  This file is distributed under the terms of    *
+#*   the GNU Lesser General Public License version 2.1, with the          *
+#*   special exception on linking described in the file LICENSE.          *
+#*                                                                        *
+#**************************************************************************
+
+# Type-check part of the source tree with a host compiler, so that merlin
+# can read the resulting .cmi and .cmt files. See Makefile.merlin, which
+# runs this file from a directory under $(MERLIN_DIR) as:
+#
+#   $(MAKE) -C <shadow dir> -f Makefile.merlin-shadow \
+#     SRCDIR=<sources, relative to the shadow dir> DEPEND=<.depend files> ...
+#
+# The tools are run from the root of the tree, like in the real build, so
+# that locations in the .cmt files are relative to the root, as are the
+# line directives of the sources that the real build generates. Merlin
+# finds the files of the index from there (SOURCE_ROOT).
+#
+# Variables:
+#   ROOT           root of the tree, relative to the shadow dir
+#   SHADOW         the shadow dir, relative to ROOT
+#   SRCDIR         directory holding the sources and DEPEND
+#   DEPEND         dependency files (relative to SRCDIR), giving the units
+#                  to build
+#   DIRS           only build the units of DEPEND in these subdirectories
+#                  (empty: build every unit of DEPEND)
+#   EXCLUDE        units of DEPEND not to build (dir/name)
+#   INCLUDE_DIRS   directories to look into, relative to the shadow dir,
+#                  besides the one of the target
+#   COMPFLAGS      compilation flags
+#   PERFILE_FLAGS  command printing extra flags for a given target
+#   STDLIB         "true" when building the standard library
+#   MERLIN_OCAMLC, MERLIN_OCAMLLEX, MERLIN_OCAMLYACC   host tools
+#   MERLIN_OCAML_INDEX  ocaml-index (empty: do not write merlin.ocaml-index)
+
+# Only sources are looked up in SRCDIR: objects found there come from the
+# real build and cannot be read by the host compiler.
+vpath %.ml $(SRCDIR)
+vpath %.mli $(SRCDIR)
+vpath %.mll $(SRCDIR)
+vpath %.mly $(SRCDIR)
+
+V ?= 0
+ifeq "$(V)" "0"
+V_OCAMLC = @$(info $   MERLIN $@)
+V_GEN = @$(info $   GEN $@)
+else
+V_OCAMLC =
+V_GEN =
+endif
+
+# Declared before including DEPEND, so that it is the default goal
+.PHONY: all
+all: generated
+
+include $(addprefix $(SRCDIR)/,$(DEPEND))
+
+DEPEND_TARGETS := $(sort \
+  $(shell sed -n 's/^\([^ :]*\.cm[io]\) *:.*/\1/p' \
+            $(addprefix $(SRCDIR)/,$(DEPEND))))
+
+ifeq "$(DIRS)" ""
+TARGETS := $(DEPEND_TARGETS)
+else
+# Skip the units whose sources do not exist and are not generated here,
+# for instance asmcomp/emit.ml, which needs tools/cvt_emit.
+source_exists = $(wildcard $(addprefix $(SRCDIR)/$(basename $(1)),$(2)))
+TARGETS := $(foreach t,$(DEPEND_TARGETS), \
+  $(if $(filter $(addsuffix /,$(DIRS)),$(dir $(t))), \
+  $(if $(call source_exists,$(t), \
+         $(if $(filter %.cmi,$(t)),.mli .mly,.ml .mll .mly)),$(t))))
+endif
+
+TARGETS := $(filter-out $(addsuffix .cmi,$(EXCLUDE)) \
+  $(addsuffix .cmo,$(EXCLUDE)),$(TARGETS))
+
+all: $(TARGETS)
+
+# The indexes of the occurrences of names, one per directory of DIRS (or
+# one for all the units), so that a change only re-indexes its directory.
+# Note that a failed interface, which is an error, prevents the index of
+# its directory from being written.
+INDEX = merlin.ocaml-index
+INDEX_DIRS = $(if $(DIRS),$(DIRS),.)
+INDEXES = $(addsuffix /$(INDEX),$(INDEX_DIRS))
+ifneq "$(MERLIN_OCAML_INDEX)" ""
+all: $(INDEXES)
+endif
+
+# $(call index_units,dir)
+index_units = $(if $(filter .,$(1)),$(TARGETS), \
+  $(foreach t,$(TARGETS),$(if $(filter $(1)/,$(dir $(t))),$(t))))
+index_cmts = $(patsubst %.cmo,%.cmt,$(filter %.cmo,$(1))) \
+  $(patsubst %.cmi,%.cmti,$(filter %.cmi,$(1)))
+
+# The wildcard is expanded when the recipe runs: units without an interface
+# have no .cmti.
+define index_rule
+$(1)/$(INDEX): $(call index_units,$(1))
+	$$(V_GEN)$$(MERLIN_OCAML_INDEX) aggregate -o $$@ \
+	  --root $$(abspath $$(ROOT)) \
+	  $$(addprefix -I ,$$(sort $$(dir $$(TARGETS))) $$(INCLUDE_DIRS)) \
+	  $$(wildcard $$(call index_cmts,$$^))
+endef
+$(foreach d,$(INDEX_DIRS),$(eval $(call index_rule,$(d))))
+
+# Lexers and parsers generated here. They are mentioned as prerequisites,
+# so that make prefers building foo.cmi from a generated foo.mli rather
+# than with foo.cmo. They are kept for merlin, which may open them.
+generated_from = $(foreach u,$(basename $(filter %.cmo,$(TARGETS))), \
+  $(if $(wildcard $(SRCDIR)/$(u).$(1)),$(addprefix $(u),$(2))))
+GENERATED := $(call generated_from,mll,.ml) $(call generated_from,mly,.ml .mli)
+
+.PHONY: generated
+generated: $(GENERATED)
+
+.SECONDARY:
+
+$(shell mkdir -p $(sort $(dir $(TARGETS))))
+
+# $(call from_root,paths): paths relative to the shadow dir, from the root
+from_root = $(strip $(foreach p,$(1),$(if $(filter $(ROOT)/%,$(p)), \
+  $(patsubst $(ROOT)/%,%,$(p)),$(SHADOW)/$(p))))
+
+# -nocwd: the root holds no objects, but neither the shadow dir nor the
+# directory of the target should be missed.
+COMPILE = cd $(ROOT) && $(MERLIN_OCAMLC) $(COMPFLAGS) -nocwd -nostdlib \
+  $(addprefix -I ,$(call from_root,$(@D) $(INCLUDE_DIRS))) $(UNIT_FLAGS)
+
+# stdlib/Compflags refers to ./expand_module_aliases.awk and $AWK
+export AWK
+extra_flags = $(if $(PERFILE_FLAGS),$(subst ./expand_module_aliases.awk, \
+  $(call from_root,$(SRCDIR))/expand_module_aliases.awk, \
+  $(shell $(PERFILE_FLAGS) $(1))))
+
+# $(call compile,source)
+compile = $(COMPILE) $(call extra_flags,$@) \
+  -o $(call from_root,$@) -c $(call from_root,$(1))
+
+# A failed implementation still leaves a partial .cmt, which is good enough
+# for merlin. Only report it, and touch the .cmo so that the next run does
+# not retry until the source changes. A failed interface is an error.
+define keep_going
+  { echo "make merlin: $(call from_root,$(1)) does not type-check with the" \
+         "host compiler (partial .cmt kept)" >&2; touch $(CURDIR)/$(2); }
+endef
+
+%.cmi: %.mli
+	$(V_OCAMLC)$(call compile,$<)
+
+%.cmo: %.ml
+	$(V_OCAMLC)$(call compile,$<) || $(call keep_going,$<,$@)
+
+# Units without an interface get their .cmi with their .cmo, which is the
+# target that DEPEND gives the dependencies of.
+%.cmi: %.cmo
+	@true
+
+ifeq "$(STDLIB)" "true"
+# The standard library compiles foo.ml(i) to stdlib__Foo.cm[io], see
+# stdlib/Makefile. The sources come from $(DEPEND).
+# Every module but these two implicitly opens Stdlib.
+STDLIB_NOSTDLIB = $(addprefix camlinternalFormatBasics.,cmi cmo) \
+  $(addprefix stdlib.,cmi cmo)
+$(filter-out $(STDLIB_NOSTDLIB),$(TARGETS)): stdlib.cmi
+
+stdlib__%.cmi:
+	$(V_OCAMLC)$(call compile,$(filter %.mli,$^))
+
+stdlib__%.cmo:
+	$(V_OCAMLC)$(call compile,$(filter %.ml,$^)) \
+	  || $(call keep_going,$(filter %.ml,$^),$@)
+endif
+
+%.ml: %.mll
+	$(V_GEN)cd $(ROOT) && \
+	  $(MERLIN_OCAMLLEX) -q -o $(call from_root,$@ $<)
+
+%.ml %.mli: %.mly
+	$(V_GEN)cd $(ROOT) && \
+	  $(MERLIN_OCAMLYACC) -b$(call from_root,$*) $(call from_root,$<)
+
+# The rules below mirror special cases of Makefile.
+
+# Generated with ocamlc -i, see Makefile
+bytecomp/opcodes.mli: bytecomp/opcodes.ml
+	$(V_GEN)$(COMPILE) -i $(call from_root,$<) > $(CURDIR)/$@.tmp \
+	  && mv $(CURDIR)/$@.tmp $(CURDIR)/$@
+
+ifneq "$(filter bytecomp,$(DIRS))" ""
+GENERATED += bytecomp/opcodes.mli
+endif
+
+# Their interface is shared with toplevel/native. Instead of copying the
+# .mli next to the sources, as Makefile does, use -cmi-file.
+TOPLEVEL_SHARED = $(addprefix toplevel/byte/,topeval trace topmain)
+
+$(TOPLEVEL_SHARED:=.cmi): toplevel/byte/%.cmi: toplevel/%.cmi
+	$(V_GEN)cp $< $@
+
+$(TOPLEVEL_SHARED:=.cmo): UNIT_FLAGS = -cmi-file $(call from_root,$(@:.cmo=.cmi))
+
+# The compiler's parser is generated by menhir, see Makefile.menhir
+parsing/parser.ml: $(SRCDIR)/boot/menhir/parser.ml
+	$(V_GEN)sed "s/MenhirLib/CamlinternalMenhirLib/g" $< > $@
+
+parsing/parser.mli: $(SRCDIR)/boot/menhir/parser.mli
+	$(V_GEN)sed "s/MenhirLib/CamlinternalMenhirLib/g" $< > $@
