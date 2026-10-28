@@ -2696,6 +2696,8 @@ ifneq "$(wildcard .git)" ""
 include Makefile.dev
 endif
 
+include Makefile.merlin
+
 # Default rules
 
 %.cmo: %.ml
