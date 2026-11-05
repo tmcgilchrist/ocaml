@@ -45,6 +45,12 @@ Working version
   on POSIX systems.
   (Romain Beauxis, review by Stefan Muenzel and Antonin Décimo)
 
+- #?????: Add `Unix.getpid_os`, `Unix.os_pid_of_process` and
+  `Unix.process_of_os_pid`, converting between the numbers the `Unix` library
+  uses to identify a process and the identifiers the operating system uses,
+  which differ on Windows.
+  (Tim McGilchrist, review by ???)
+
 ### Tools:
 
 - #14448: ocamllex now prints a `missing-case` warning and shows an example
