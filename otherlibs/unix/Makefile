@@ -59,8 +59,8 @@ OS_C_SOURCES = $(addsuffix _$(UNIX_OR_WIN32).c, \
 # OS-specific modules that have no counterpart on the other OS
 ifeq "$(UNIX_OR_WIN32)" "win32"
 OS_C_SOURCES += $(addsuffix .c, \
-  close_on createprocess nonblock startup system windbug windir winlist \
-  winwait winworker)
+  close_on createprocess nonblock os_pid startup system windbug windir \
+  winlist winwait winworker)
 else
 OS_C_SOURCES += $(addsuffix .c, \
   alarm chown chroot closedir dup2 fchmod fchown fcntl fork ftruncate \
