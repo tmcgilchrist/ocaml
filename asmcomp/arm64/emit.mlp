@@ -279,14 +279,16 @@ let emit_stack_adjustment n =
    before a return or tail call *)
 let output_epilogue env f =
   let n = frame_size env in
-  if n > 0 then
-    emit_stack_adjustment n;
-  if env.f.fun_frame_required then
-    if fp then (
-      `	ldp	x29, x30, [sp, #-16]\n`;
-    ) else (
-      `	ldr	x30, [sp, #-8]\n`;
-    );
+  if env.f.fun_frame_required && fp then begin
+    emit_stack_adjustment (n - 16);
+    `	ldp	x29, x30, [sp], #16\n`;
+    cfi_adjust_cfa_offset (-16)
+  end else begin
+    if env.f.fun_frame_required then
+      `	ldr	x30, [sp, #{emit_int (n-8)}]\n`;
+    if n > 0 then
+      emit_stack_adjustment n
+  end;
   f();
   (* reset CFA back because function body may continue *)
   if n > 0 then cfi_adjust_cfa_offset n
@@ -445,16 +447,20 @@ module Size = struct
 
   let prologue_size f =
     let stk = initial_stack_offset f in
-    (if stk > 0 then stack_adj_size (-stk) else 0)
-    + (if f.fun_frame_required
-       then if fp then 1 + addsub_size (stk - 16) else 1
-       else 0)
+    if f.fun_frame_required && fp then
+      1 + stack_adj_size (-(stk - 16)) + addsub_size (stk - 16)
+    else
+      (if stk > 0 then stack_adj_size (-stk) else 0)
+      + (if f.fun_frame_required then 1 else 0)
 
   let epilogue_size f =
     let stk = initial_stack_offset f in
-    (if stk > 0 then stack_adj_size stk else 0) +
-    (if f.fun_frame_required then 1 else 0) +
-    1
+    if f.fun_frame_required && fp then
+      stack_adj_size (stk - 16) + 1 + 1
+    else
+      (if stk > 0 then stack_adj_size stk else 0) +
+      (if f.fun_frame_required then 1 else 0) +
+      1
 
   let instr_size f = function
     | Lend -> 0
@@ -751,20 +757,22 @@ let emit_instr env i =
     | Lend -> ()
     | Lprologue ->
       let n = frame_size env in
-      if env.f.fun_frame_required then begin
-          if fp then (
-            `	stp	x29, x30, [sp, #-16]\n`;
-            cfi_offset ~reg:29 (* frame pointer *) ~offset:(-16);
-            cfi_offset ~reg:30 (* return address *) ~offset:(-8)
-          ) else (
-            `	str	x30, [sp, #-8]\n`;
-            cfi_offset ~reg:30 (* return address *) ~offset:(-8)
-          );
-      end;
-      if n > 0 then begin
+      (* Never store below sp: AArch64 has no red zone, so a signal
+         handler may overwrite it. *)
+      if env.f.fun_frame_required && fp then begin
+        `	stp	x29, x30, [sp, #-16]!\n`;
+        cfi_adjust_cfa_offset 16;
+        cfi_offset ~reg:29 (* frame pointer *) ~offset:(-16);
+        cfi_offset ~reg:30 (* return address *) ~offset:(-8);
+        emit_stack_adjustment (-(n - 16));
+        emit_addimm_gen "x29" "sp" (n - 16)
+      end else begin
+        if n > 0 then
           emit_stack_adjustment (-n);
-          if env.f.fun_frame_required && fp then
-            emit_addimm_gen "x29" "sp" (n - 16)
+        if env.f.fun_frame_required then begin
+          `	str	x30, [sp, #{emit_int (n-8)}]\n`;
+          cfi_offset ~reg:30 (* return address *) ~offset:(-8)
+        end
       end
     | Lop(Imove | Ispill | Ireload) ->
         let src = i.arg.(0) and dst = i.res.(0) in
