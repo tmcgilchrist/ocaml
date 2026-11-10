@@ -80,6 +80,9 @@ Working version
 
 ### Bug fixes:
 
+- #?????: Fix signal safety of ARM64 function prologues and epilogues.
+  (Tim McGilchrist, review by ?????)
+
 - #14602: on Windows, Sys.rename and Unix.rename now succeed when the
   destination is an existing read-only file, as on POSIX systems.
   (Nicolás Ojeda Bär, review by Gabriel Scherer, Antonin Décimo,
