@@ -50,6 +50,8 @@
 
     # Work around inconsistent name mangling
     gsub(/c_to_ocaml_[0-9]+/, "c_to_ocaml")
+    gsub(/on_fiber_[0-9]+/, "on_fiber")
+    gsub(/on_perform_[0-9]+/, "on_perform")
 
     # Work around symbol versioning
     gsub(/__libc_start_main_impl$/, "__libc_start_mainXXXX")
@@ -66,6 +68,24 @@
     # Fix indentation: Xcode 27 on macOS adds two extra spaces here
     gsub(/^      frame #/, "    frame #");
 
-    if ($0 != "")
+    # Drop the runtime source listing at caml_try_realloc_stack
+    gsub(/required_space=[0-9]+/, "required_space=XX")
+    gsub(/^warning: .*: source file checksum mismatch .*/, "")
+    if (in_listing == "lldb") {
+      if ($0 ~ /^(Target 0:|\(lldb\))/) in_listing = ""; else next
+    } else if (in_listing == "gdb") {
+      in_listing = ""
+      if ($0 ~ /^(warning: )?[0-9]+\t/) next
+    }
+    if ($0 ~ /caml_try_realloc_stack.* at .*fiber\.c/)
+      in_listing = ($0 ~ /^Breakpoint/) ? "gdb" : "lldb"
+
+    # The recursion depth depends on the frame size
+    if ($0 ~ /^frame X: .*camlMeander[.$]recurse$/ && $0 == last)
+      next
+
+    if ($0 != "") {
       print $0
+      last = $0
+    }
 }
