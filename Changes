@@ -130,6 +130,11 @@ Working version
   (Tim McGilchrist and Miod Vallat, reported by KC Sivaramakrishnan,
    reviews by Miod Vallat and Zane Hambly)
 
+- #15037, #?????: Fix the unwind information of the stack reallocation path
+  in native code on amd64, arm64, POWER and RISC-V, so that backtraces taken
+  from inside caml_call_realloc_stack are correct.
+  (Tim McGilchrist, report by Aliaksei Kandratsenka, review by ???)
+
 OCaml 5.6.0
 -----------
 
