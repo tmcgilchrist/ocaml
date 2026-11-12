@@ -497,6 +497,9 @@ G(name):
         TEXT_SECTION(caml_system__code_begin)
         .globl  G(caml_system__code_begin)
 G(caml_system__code_begin):
+    /* Pad so that caml_system__code_begin is not at the address of the
+       first function, as in begin_assembly in asmcomp/arm64/emit.mlp. */
+        nop
 
 FUNCTION(caml_call_realloc_stack)
         CFI_STARTPROC
@@ -517,7 +520,10 @@ FUNCTION(caml_call_realloc_stack)
 1:      RESTORE_ALL_REGS
     /* Raise the Stack_overflow exception */
         LEAVE_FUNCTION
-        add     sp, sp, 16 /* pop argument */
+    /* Pop the argument and reload the return address of the function
+       that overflowed, saved by its stack check, so that the backtrace
+       starts at its caller. */
+        ldp     TMP, x30, [sp], 16
         ADDRGLOBAL(x0, caml_exn_Stack_overflow)
         b       G(caml_raise_exn)
         CFI_ENDPROC

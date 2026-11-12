@@ -321,6 +321,10 @@ CFI_STARTPROC
 LBL(120):
         RESTORE_ALL_REGS
         LEAVE_FUNCTION
+    /* Reload the return address of the function that overflowed, saved
+       by its stack check, so that the backtrace starts at its caller. */
+        lg      %r14, 0(%r15)
+        la      %r15, 8(%r15)
         LEA_VAR(caml_exn_Stack_overflow, %r2)
         brcl    15, GCALL(caml_raise_exn)
 CFI_ENDPROC
@@ -839,6 +843,7 @@ CFI_STARTPROC
           DW_OP_deref,                                \
           DW_OP_plus_uconst, Stack_sp, DW_OP_deref,   \
           DW_OP_plus_uconst, RETADDR_ENTRY_SIZE
+        CFI_OFFSET(14, -8)
         .cfi_escape DW_CFA_val_offset, DW_REG_r15, 0
 #endif
     /* Call the function on the new stack */

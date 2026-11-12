@@ -426,6 +426,22 @@ let cfi_offset ~reg ~offset =
     emit_string "\n"
   end
 
+let cfi_restore ~reg =
+  if is_cfi_enabled () then begin
+    emit_string "\t.cfi_restore ";
+    emit_int reg;
+    emit_string "\n"
+  end
+
+let cfi_register ~reg ~in_reg =
+  if is_cfi_enabled () then begin
+    emit_string "\t.cfi_register ";
+    emit_int reg;
+    emit_string ", ";
+    emit_int in_reg;
+    emit_string "\n"
+  end
+
 let cfi_def_cfa_register ~reg =
   if is_cfi_enabled () then begin
     emit_string "\t.cfi_def_cfa_register ";

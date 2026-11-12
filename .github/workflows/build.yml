@@ -214,6 +214,7 @@ jobs:
                config_arg: "CFLAGS='-O0'"},
               {name: 'linux-arm64', os: 'ubuntu-24.04-arm',
                config_arg: '--with-target-sh=exe --enable-runtime-search-target=fallback',
+               dependencies: 'gdb lldb',
                'test-in-prefix': true},
               {name: 'macos-arm64', os: 'macos-latest',
                config_arg: '--with-relative-libdir --enable-runtime-search',
@@ -282,6 +283,11 @@ jobs:
           # Select latest supported version
           sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
           lldb --version
+      - name: Linux Dependencies
+        if: startsWith(matrix.os, 'ubuntu-') && matrix.dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y ${{ matrix.dependencies }}
       - name: configure tree
         run: |
           CONFIG_ARG='--enable-codegen-invariants ${{ matrix.config_arg }}' MAKE_ARG=-j bash -xe tools/ci/actions/runner.sh configure

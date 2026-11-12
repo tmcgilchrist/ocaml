@@ -83,6 +83,10 @@ val cfi_startproc : unit -> unit
 val cfi_endproc : unit -> unit
 val cfi_adjust_cfa_offset : int -> unit
 val cfi_offset : reg:int -> offset:int -> unit
+val cfi_restore : reg:int -> unit
+  (* [reg] goes back to its rule at function entry. *)
+val cfi_register : reg:int -> in_reg:int -> unit
+  (* The value of [reg] is held in [in_reg]. *)
 val cfi_def_cfa_offset : int -> unit
 val cfi_remember_state : unit -> unit
 val cfi_restore_state : unit -> unit
