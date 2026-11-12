@@ -497,6 +497,9 @@ G(name):
         TEXT_SECTION(caml_system__code_begin)
         .globl  G(caml_system__code_begin)
 G(caml_system__code_begin):
+    /* Pad so that caml_system__code_begin is not at the address of the
+       first function, as in begin_assembly in asmcomp/arm64/emit.mlp. */
+        nop
 
 FUNCTION(caml_call_realloc_stack)
         CFI_STARTPROC
