@@ -11,8 +11,12 @@ Breakpoint created for regex caml_start_program.
 Breakpoint created for regex caml_program.
 (lldb) create camlMeander[.$]c_to_ocaml*
 Breakpoint created for regex camlMeander[.$]c_to_ocaml*.
-(lldb) create ocaml_to_c
-Breakpoint created for regex ocaml_to_c.
+(lldb) create ^ocaml_to_c$
+Breakpoint created for regex ^ocaml_to_c$.
+(lldb) create camlMeander[.$]on_fiber*
+Breakpoint created for regex camlMeander[.$]on_fiber*.
+(lldb) create camlMeander[.$]on_perform*
+Breakpoint created for regex camlMeander[.$]on_perform*.
 (lldb) run
 Process XXXX launched: 'XXXX' ($ARCH)
 Process XXXX stopped
@@ -80,6 +84,40 @@ frame X: meander`caml_callback
 frame X: meander`ocaml_to_c
 frame X: meander`caml_c_call
 frame X: meander`camlMeander$omain
+frame X: meander`camlMeander$entry
+frame X: meander`caml_program
+frame X: meander`caml_start_program
+frame X: meander`caml_startup_common
+frame X: meander`caml_startup
+frame X: meander`caml_main
+frame X: meander`main
+frame X: dyld`start
+(lldb) continue
+Process XXXX resuming
+Process XXXX stopped
+* thread #1, queue = 'XXXX', stop reason = breakpoint 5.1
+    frame #0: 0x00000000000000 meander`camlMeander$on_fiber
+Target 0: (meander) stopped.
+(lldb) backtrace
+frame X: meander`camlMeander$on_fiber
+frame X: meander`caml_runstack
+frame X: meander`camlMeander$entry
+frame X: meander`caml_program
+frame X: meander`caml_start_program
+frame X: meander`caml_startup_common
+frame X: meander`caml_startup
+frame X: meander`caml_main
+frame X: meander`main
+frame X: dyld`start
+(lldb) continue
+Process XXXX resuming
+Process XXXX stopped
+* thread #1, queue = 'XXXX', stop reason = breakpoint 6.1
+    frame #0: 0x00000000000000 meander`camlMeander$on_perform
+Target 0: (meander) stopped.
+(lldb) backtrace
+frame X: meander`camlMeander$on_perform
+frame X: meander`caml_runstack
 frame X: meander`camlMeander$entry
 frame X: meander`caml_program
 frame X: meander`caml_start_program
