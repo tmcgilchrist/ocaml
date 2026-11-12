@@ -142,6 +142,10 @@ Working version
   e.g. `(module%foo M : S) -> int`, because they cannot be represented.
   (Hugo Heuzard, review by Florian Angeletti)
 
+- #15298: Fix the backtrace of Stack_overflow raised by caml_call_realloc_stack
+  on arm64, POWER, RISC-V and s390x.
+  (Tim McGilchrist, review by David Allsopp)
+
 OCaml 5.6.0
 -----------
 
