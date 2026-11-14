@@ -43,6 +43,8 @@
    https://github.com/riscv-non-isa/riscv-elf-psabi-doc/releases/tag/v1.0
 
 */
+#define DW_REG_s0                 8  /* x8  */
+#define DW_REG_s2                 18 /* x18 */
 #define DW_REG_s4                 20 /* x20 */
 #define DW_REG_sp                 2  /* x2  */
 
@@ -634,6 +636,13 @@ FUNCTION(caml_c_call_stack_args)
 #else
     /* Store sp to restore after call */
         mv      s2, sp
+#ifdef ASM_CFI_SUPPORTED
+    /* The copy below moves sp, so compute the CFA from s2, which points to
+       the c_stack_link until sp is restored. */
+        .cfi_escape DW_CFA_def_cfa_expression, 5,                 \
+           DW_OP_breg + DW_REG_s2, Cstack_sp_offset, DW_OP_deref, \
+           DW_OP_plus_uconst, 16 /* fp + retaddr */
+#endif
     /* Copy arguments from OCaml to C stack
        NB: STACK_ARG_END - STACK_ARG_BEGIN is a multiple of 16 */
 1:      addi    STACK_ARG_END, STACK_ARG_END, -16
@@ -643,7 +652,6 @@ FUNCTION(caml_c_call_stack_args)
         addi    sp, sp, -16
         sd      TMP, 0(sp)
         sd      TMP2, 8(sp)
-        CFI_ADJUST(16)
         j       1b
 2:  /* Call the function */
         jalr    ADDITIONAL_ARG
@@ -671,6 +679,9 @@ END_FUNCTION(caml_c_call_stack_args)
    of arguments is done by this separate function. */
 FUNCTION(caml_c_call_copy_stack_args)
         ENTER_FUNCTION
+    /* s0 = CFA. The copy below moves sp, so compute the CFA from s0. */
+        CFI_DEF_CFA_REGISTER(DW_REG_s0)
+        CFI_DEF_CFA_OFFSET(0)
 #if defined(WITH_THREAD_SANITIZER)
         TSAN_SAVE_CALLER_REGS
         /* TSAN_ENTER_FUNCTION, but without switching stacks
@@ -688,20 +699,19 @@ FUNCTION(caml_c_call_copy_stack_args)
         addi    sp, sp, -16
         sd      TMP, 0(sp)
         sd      TMP2, 8(sp)
-        CFI_ADJUST(16)
         j       1b
 2:  /* Call the function */
         jalr    ADDITIONAL_ARG
+    /* Restore stack: s0 = CFA = sp before args were pushed + 16. */
+        addi    sp, s0, -16
+        CFI_DEF_CFA_REGISTER(DW_REG_sp)
+        CFI_DEF_CFA_OFFSET(16)
 #if defined(WITH_THREAD_SANITIZER)
         TSAN_PUSH_RETURN_REGS /* Save return value. */
         /* TSAN_EXIT_FUNCTION, but without switching stacks */
         call    PLT(caml_tsan_func_exit_asm)
         TSAN_POP_RETURN_REGS
 #endif
-    /* Restore stack: s0 = CFA = sp before args were pushed + 16.
-       The loop pushed a dynamic number of words, so resync the CFA. */
-        addi    sp, s0, -16
-        CFI_DEF_CFA_OFFSET(16)
         LEAVE_FUNCTION
         ret
 END_FUNCTION(caml_c_call_copy_stack_args)
