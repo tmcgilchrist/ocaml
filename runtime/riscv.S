@@ -43,6 +43,7 @@
    https://github.com/riscv-non-isa/riscv-elf-psabi-doc/releases/tag/v1.0
 
 */
+#define DW_REG_s0                 8  /* x8  */
 #define DW_REG_s4                 20 /* x20 */
 #define DW_REG_sp                 2  /* x2  */
 
@@ -624,32 +625,8 @@ FUNCTION(caml_c_call_stack_args)
     /* Make the exception handler alloc ptr available to the C code */
         sd      ALLOC_PTR, Caml_state(young_ptr)
         sd      TRAP_PTR, Caml_state(exn_handler)
-#ifdef WITH_FRAME_POINTERS
-    /* Copy the arguments and call.
-       This is done in a separate function so that nothing is pushed
-       between the c_stack_link and the first frame pointer on the C stack
-       (required for correct frame pointer rewriting during stack
-       reallocation; see caml_try_realloc_stack in fiber.c). */
+    /* Copy the arguments and call */
         call    PLT(caml_c_call_copy_stack_args)
-#else
-    /* Store sp to restore after call */
-        mv      s2, sp
-    /* Copy arguments from OCaml to C stack
-       NB: STACK_ARG_END - STACK_ARG_BEGIN is a multiple of 16 */
-1:      addi    STACK_ARG_END, STACK_ARG_END, -16
-        bltu    STACK_ARG_END, STACK_ARG_BEGIN, 2f
-        ld      TMP, 0(STACK_ARG_END)
-        ld      TMP2, 8(STACK_ARG_END)
-        addi    sp, sp, -16
-        sd      TMP, 0(sp)
-        sd      TMP2, 8(sp)
-        CFI_ADJUST(16)
-        j       1b
-2:  /* Call the function */
-        jalr    ADDITIONAL_ARG
-    /* Restore stack */
-        mv      sp, s2
-#endif
     /* Reload new allocation pointer & exn handler */
         ld      ALLOC_PTR, Caml_state(young_ptr)
         ld      TRAP_PTR, Caml_state(exn_handler)
@@ -663,14 +640,25 @@ FUNCTION(caml_c_call_stack_args)
         RET_FROM_C_CALL
 END_FUNCTION(caml_c_call_stack_args)
 
-#ifdef WITH_FRAME_POINTERS
 /* To correctly maintain frame pointers during stack reallocation,
    the runtime assumes that the caml_c_call stub does not push
    anything to the stack before the first frame pointer on the C stack.
    To guarantee this when stack arguments are used, the actual pushing
-   of arguments is done by this separate function. */
+   of arguments is done by this separate function. It is used with or
+   without frame pointers, so that both have the same code and unwind
+   information. */
 FUNCTION(caml_c_call_copy_stack_args)
-        ENTER_FUNCTION
+    /* Save ra and s0, and set s0 to the CFA, even without frame pointers:
+       the copy below moves sp, so the CFA is computed from s0. */
+        addi    sp, sp, -16
+        CFI_ADJUST(16)
+        sd      ra, 8(sp)
+        CFI_OFFSET(ra, -8)
+        sd      s0, 0(sp)
+        CFI_OFFSET(s0, -16)
+        addi    s0, sp, 16
+        CFI_DEF_CFA_REGISTER(DW_REG_s0)
+        CFI_DEF_CFA_OFFSET(0)
 #if defined(WITH_THREAD_SANITIZER)
         TSAN_SAVE_CALLER_REGS
         /* TSAN_ENTER_FUNCTION, but without switching stacks
@@ -688,24 +676,25 @@ FUNCTION(caml_c_call_copy_stack_args)
         addi    sp, sp, -16
         sd      TMP, 0(sp)
         sd      TMP2, 8(sp)
-        CFI_ADJUST(16)
         j       1b
 2:  /* Call the function */
         jalr    ADDITIONAL_ARG
+    /* Restore stack: s0 = CFA = sp before args were pushed + 16. */
+        addi    sp, s0, -16
+        CFI_DEF_CFA_REGISTER(DW_REG_sp)
+        CFI_DEF_CFA_OFFSET(16)
 #if defined(WITH_THREAD_SANITIZER)
         TSAN_PUSH_RETURN_REGS /* Save return value. */
         /* TSAN_EXIT_FUNCTION, but without switching stacks */
         call    PLT(caml_tsan_func_exit_asm)
         TSAN_POP_RETURN_REGS
 #endif
-    /* Restore stack: s0 = CFA = sp before args were pushed + 16.
-       The loop pushed a dynamic number of words, so resync the CFA. */
-        addi    sp, s0, -16
-        CFI_DEF_CFA_OFFSET(16)
-        LEAVE_FUNCTION
+        ld      s0, 0(sp)
+        ld      ra, 8(sp)
+        addi    sp, sp, 16
+        CFI_ADJUST(-16)
         ret
 END_FUNCTION(caml_c_call_copy_stack_args)
-#endif
 
 /* Start the OCaml program */
 
