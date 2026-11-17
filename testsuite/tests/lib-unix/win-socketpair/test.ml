@@ -1,5 +1,4 @@
 (* TEST
- modules = "getpid.c";
  script = "sh ${test_source_directory}/has-afunix.sh";
  include systhreads;
  hassysthreads;
@@ -15,9 +14,6 @@
    native;
  }
 *)
-
-external get_current_process_id : unit -> int
-  = "caml_test_get_current_process_id"
 
 (* Check that data flows in both directions. *)
 
@@ -59,7 +55,7 @@ let () =
   in
   let stale =
     Filename.concat temp_dir
-      (Printf.sprintf "ocaml_sp_%08x_%08x" (get_current_process_id ()) 1)
+      (Printf.sprintf "ocaml_sp_%08lx_%08x" (Unix.getpid_os ()) 1)
   in
   close_out (open_out stale);
   let fd0, fd1 = Unix.socketpair Unix.PF_UNIX Unix.SOCK_STREAM 0 in

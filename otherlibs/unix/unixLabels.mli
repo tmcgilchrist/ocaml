@@ -316,6 +316,42 @@ val getppid : unit -> int
     @raise Invalid_argument on Windows (because it is
     meaningless) *)
 
+val getpid_os : unit -> int32
+(** Return the identifier the operating system uses for the process.
+
+    This is not {!getpid} on Windows, where the number this library uses to
+    identify a process is a process handle: {!getpid} returns a handle to the
+    current process. Elsewhere the two are the same number.
+
+    The identifier is an [int32] because it is a [pid_t] on POSIX systems and
+    a [DWORD] on Windows, neither of which fits in an [int] on a 32-bit
+    platform. A Windows identifier greater than {!Int32.max_int} is therefore
+    returned as a negative [int32].
+
+    @since 5.7 *)
+
+val os_pid_of_process : int -> int32
+(** [os_pid_of_process pid] is the identifier the operating system uses for
+    the process that [pid] identifies, [pid] being as returned by
+    {!create_process} or {!fork}. See {!getpid_os} for why the two differ.
+
+    @raise Unix_error on Windows if the identifier cannot be read from [pid].
+
+    @since 5.7 *)
+
+val process_of_os_pid : int32 -> int
+(** [process_of_os_pid os_pid] is a number this library can use to identify
+    the process whose operating system identifier is [os_pid], for instance
+    with {!waitpid} or {!kill}. See {!getpid_os} for why the two differ.
+
+    On Windows this opens a handle to the process, which must still exist, and
+    the handle is the caller's to close; {!waitpid} closes it. Elsewhere
+    nothing is acquired and the process need not exist.
+
+    @raise Unix_error on Windows if the process cannot be opened.
+
+    @since 5.7 *)
+
 val nice : int -> int
 (** Change the process priority. The integer argument is added to the
    ``nice'' value. (Higher values of the ``nice'' value mean

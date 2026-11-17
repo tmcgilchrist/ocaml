@@ -223,6 +223,13 @@ external waitpid : wait_flag list -> int -> int * process_status
 external _exit : int -> 'a = "caml_unix_exit"
 external getpid : unit -> int = "caml_unix_getpid"
 external getppid : unit -> int = "caml_unix_getppid"
+
+(* Here the number used to identify a process is the identifier the operating
+   system uses, so these only change its representation. *)
+let getpid_os () = Int32.of_int (getpid ())
+let os_pid_of_process pid = Int32.of_int pid
+let process_of_os_pid os_pid = Int32.to_int os_pid
+
 external nice : int -> int = "caml_unix_nice"
 
 (* Basic file input/output *)

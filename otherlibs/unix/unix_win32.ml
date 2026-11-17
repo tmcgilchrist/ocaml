@@ -244,6 +244,9 @@ external waitpid : wait_flag list -> int -> int * process_status
 external _exit : int -> 'a = "caml_unix_exit"
 external getpid : unit -> int = "caml_unix_getpid"
 let getppid () = invalid_arg "Unix.getppid not implemented"
+external getpid_os : unit -> int32 = "caml_unix_getpid_os"
+external os_pid_of_process : int -> int32 = "caml_unix_os_pid_of_process"
+external process_of_os_pid : int32 -> int = "caml_unix_process_of_os_pid"
 let nice _ = invalid_arg "Unix.nice not implemented"
 
 (* Basic file input/output *)
