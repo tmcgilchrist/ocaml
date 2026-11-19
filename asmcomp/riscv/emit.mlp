@@ -150,13 +150,15 @@ let reload_fp n =
 let store_fp n =
   emit_mem_op "sd" "s0" (n - 16) "sp"
 
-let output_epilogue env =
+let output_epilogue env f =
   let n = frame_size env in
   if env.f.fun_frame_required then begin
     reload_ra n;
     if fp then reload_fp n
   end;
-  emit_stack_adjustment n
+  emit_stack_adjustment n;
+  f ();
+  if n <> 0 then cfi_adjust_cfa_offset n
 
 let emit_store rs ofs rd =
   emit_mem_op "sd" (reg_name rs) ofs rd
@@ -340,14 +342,14 @@ let emit_instr env i =
       `	{emit_call func}\n`;
       record_frame env i.live (Dbg_other i.dbg)
   | Lop(Itailcall_ind) ->
-      output_epilogue env;
-      `	jr	{emit_reg i.arg.(0)}\n`
+      output_epilogue env (fun () ->
+        `	jr	{emit_reg i.arg.(0)}\n`)
   | Lop(Itailcall_imm {func}) ->
       if func = env.f.fun_name then begin
         `	j	{emit_label env.f.fun_tailrec_entry_point_label}\n`
       end else begin
-        output_epilogue env;
-        `	{emit_tail func}\n`
+        output_epilogue env (fun () ->
+          `	{emit_tail func}\n`)
       end
   | Lop(Iextcall{func; alloc; stack_ofs}) ->
       if stack_ofs > 0 then begin
@@ -595,7 +597,8 @@ let emit_instr env i =
       let n = frame_size env in
       if fp && env.f.fun_frame_required then reload_fp n;
       emit_stack_adjustment n;
-      `	ret\n`
+      `	ret\n`;
+      if n <> 0 then cfi_adjust_cfa_offset n
   | Llabel lbl ->
       `{emit_label lbl}:\n`
   | Lbranch lbl ->
