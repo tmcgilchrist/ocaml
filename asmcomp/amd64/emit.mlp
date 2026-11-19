@@ -71,6 +71,9 @@ let cfi_restore_state () =
 let cfi_def_cfa_register reg =
   if Config.asm_cfi_supported then D.cfi_def_cfa_register reg
 
+let cfi_def_cfa_offset n =
+  if Config.asm_cfi_supported then D.cfi_def_cfa_offset n
+
 let emit_debug_info dbg =
   emit_debug_info_gen dbg D.file D.loc
 
@@ -996,6 +999,11 @@ let fundecl fundecl =
   | None -> ()
   | Some (overflow,ret) -> begin
       def_label overflow;
+      (* This block is reached from the stack check at the function
+         entry, before the frame is allocated, so the CFA is the one at
+         entry, not the one at the end of the function body. *)
+      cfi_remember_state ();
+      cfi_def_cfa_offset 8;
       (* Pass the desired frame size on the stack, since all of the
         argument-passing registers may be in use.
         Also serves to align the stack properly before the call *)
@@ -1005,7 +1013,8 @@ let fundecl fundecl =
       emit_call "caml_call_realloc_stack";
       I.pop r10; (* ignored *)
       cfi_adjust_cfa_offset (-8);
-      I.jmp (label ret)
+      I.jmp (label ret);
+      cfi_restore_state ()
     end
   end;
   if fundecl.fun_frame_required then begin

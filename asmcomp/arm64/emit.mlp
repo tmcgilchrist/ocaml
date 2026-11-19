@@ -1267,51 +1267,88 @@ let fundecl fundecl =
   (* Dynamic stack checking *)
   let stack_threshold_size = Config.stack_threshold * 8 in (* bytes *)
   let max_frame_size = frame_size env + fundecl.fun_extra_stack_used in
-  let handle_overflow, stack_check_size =
-    if fundecl.fun_contains_nontail_calls
-    || max_frame_size >= stack_threshold_size then begin
-      let overflow = new_label () in
-      `{emit_label overflow}:\n`;
-      (* Pass the desired frame size on the stack, since all of the
-        argument-passing registers may be in use. *)
-      let s = (Config.stack_threshold + max_frame_size / 8) in
-      `	mov	{emit_reg reg_tmp1}, #{emit_int s}\n`;
-      `	stp	{emit_reg reg_tmp1}, x30, [sp, #-16]!\n`;
-      `	bl	{emit_symbol "caml_call_realloc_stack"}\n`;
-      `	ldp	{emit_reg reg_tmp1}, x30, [sp], #16\n`;
-      (* fall through function entry point *)
-      Some overflow, 5
-    end else
-      None, 0 in
+  let need_stack_check =
+    fundecl.fun_contains_nontail_calls
+    || max_frame_size >= stack_threshold_size in
   `{emit_symbol fundecl.fun_name}:\n`;
   emit_debug_info fundecl.fun_dbg;
   cfi_startproc();
-  begin match handle_overflow with
-  | None -> ()
-  | Some overflow ->
+  let num_call_gc, num_check_bound =
+    num_call_gc_and_check_bound_points env
+  in
+  let max_out_of_line_code_offset =
+    max_out_of_line_code_offset ~num_call_gc ~num_check_bound
+  in
+
+  BR.relax fundecl ~max_out_of_line_code_offset;
+
+  (* The stack reallocation code is emitted after the function body,
+     inside the function's FDE, so that its unwind info can be given.
+     It is reached by a conditional branch from the function entry,
+     which may be out of range in very large functions. *)
+  let handle_overflow =
+    if need_stack_check then begin
+      let overflow = new_label () and ret = new_label () in
       let threshold_offset = Domainstate.stack_ctx_words * 8 + stack_threshold_size in
       let f = max_frame_size + threshold_offset in
       let offset = Domainstate.(idx_of_field Domain_current_stack) * 8 in
       `	ldr	{emit_reg reg_tmp1}, [{emit_reg reg_domain_state_ptr}, #{emit_int offset}]\n`;
       emit_addimm reg_tmp1 reg_tmp1 f;
       `	cmp	sp, {emit_reg reg_tmp1}\n`;
-      `	bcc	{emit_label overflow}\n`
-  end;
-  let num_call_gc, num_check_bound =
-    num_call_gc_and_check_bound_points env
-  in
-  let max_out_of_line_code_offset =
-    stack_check_size +
-    max_out_of_line_code_offset ~num_call_gc ~num_check_bound
-  in
-
-  BR.relax fundecl ~max_out_of_line_code_offset;
+      let rec body_size acc i =
+        match i.desc with
+        | Lend -> acc
+        | d -> body_size (acc + Size.instr_size fundecl d) i.next in
+      (* Distance from the branch to [overflow], in instructions: the
+         body, the call GC and bound error code (at most 2 instructions
+         past [max_out_of_line_code_offset]) and the same slack as
+         [Branch_relaxation]. *)
+      let distance =
+        body_size 0 fundecl.fun_body + max_out_of_line_code_offset + 2 + 12 in
+      if distance < Size.Cond_branch.(max_displacement Bcc) then
+        `	bcc	{emit_label overflow}\n`
+      else begin
+        `	bcs	{emit_label ret}\n`;
+        `	b	{emit_label overflow}\n`
+      end;
+      `{emit_label ret}:\n`;
+      Some (overflow, ret)
+    end else
+      None in
 
   emit_all env fundecl.fun_body;
   List.iter emit_call_gc env.call_gc_sites;
   List.iter emit_call_bound_error env.bound_error_sites;
   assert (List.length env.call_gc_sites = num_call_gc);
   assert (List.length env.bound_error_sites = num_check_bound);
+
+  begin match handle_overflow with
+  | None -> ()
+  | Some (overflow, ret) ->
+      `{emit_label overflow}:\n`;
+      (* This block is reached from the stack check at the function
+         entry, before the frame is allocated, so the CFA and the saved
+         registers are as at entry, not as at the end of the body. *)
+      cfi_remember_state ();
+      cfi_def_cfa_offset 0;
+      if fundecl.fun_frame_required then begin
+        cfi_restore ~reg:30 (* return address *);
+        if fp then cfi_restore ~reg:29 (* frame pointer *)
+      end;
+      (* Pass the desired frame size on the stack, since all of the
+        argument-passing registers may be in use. *)
+      let s = (Config.stack_threshold + max_frame_size / 8) in
+      `	mov	{emit_reg reg_tmp1}, #{emit_int s}\n`;
+      `	stp	{emit_reg reg_tmp1}, x30, [sp, #-16]!\n`;
+      cfi_adjust_cfa_offset 16;
+      cfi_offset ~reg:30 (* return address *) ~offset:(-8);
+      `	bl	{emit_symbol "caml_call_realloc_stack"}\n`;
+      `	ldp	{emit_reg reg_tmp1}, x30, [sp], #16\n`;
+      cfi_adjust_cfa_offset (-16);
+      cfi_restore ~reg:30 (* return address *);
+      `	b	{emit_label ret}\n`;
+      cfi_restore_state ()
+  end;
 
   cfi_endproc();
   emit_type_directive fundecl.fun_name "%function";
@@ -1368,11 +1405,8 @@ let begin_assembly() =
      Alignment is needed to avoid linker warnings for
      shared_startup__code_{begin,end} (e.g. tests/lib-dynlink-pr4839).
    *)
-  if macosx || freebsd then begin
-    `	nop\n`;
-    `	.align	3\n`
-  end;
-  ()
+  `	nop\n`;
+  `	.align	3\n`
 
 let end_assembly () =
   let lbl_end = Compilenv.make_symbol (Some "code_end") in

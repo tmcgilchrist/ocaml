@@ -142,6 +142,17 @@ Working version
   e.g. `(module%foo M : S) -> int`, because they cannot be represented.
   (Hugo Heuzard, review by Florian Angeletti)
 
+- #?????: Fix the unwind information of caml_runstack on s390x, and of
+  caml_c_call_stack_args on RISC-V when arguments are passed on the
+  stack, so that debuggers can unwind through them.
+  (Tim McGilchrist, review by ???)
+
+- #15037, #?????: Fix the unwind information of the stack reallocation path
+  in native code on amd64, arm64, POWER and RISC-V, and after early returns
+  and tail calls on RISC-V, so that backtraces taken from inside
+  caml_call_realloc_stack are correct.
+  (Tim McGilchrist, report by Aliaksei Kandratsenka, review by ???)
+
 OCaml 5.6.0
 -----------
 

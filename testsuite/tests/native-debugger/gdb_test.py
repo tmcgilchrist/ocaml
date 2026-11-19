@@ -3,6 +3,8 @@ import re
 # Trim trailing numbers on symbols.
 #
 def trim_basename(name):
+    if name is None:
+        return "??"
     return re.sub(r"(caml.*)_[0-9]+", r"\1", name)
 
 class PrintBacktrace (gdb.Command):

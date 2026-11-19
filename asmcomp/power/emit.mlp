@@ -448,7 +448,7 @@ let name_for_specific = function
 
 (* Relaxation of branches that exceed the span of a relative branch. *)
 
-module BR = Branch_relaxation.Make (struct
+module Size = struct
   type distance = int
 
   module Cond_branch = struct
@@ -599,7 +599,9 @@ module BR = Branch_relaxation.Make (struct
   (* [classify_addr], above, never identifies these instructions as needing
      relaxing.  As such, these functions should never be called. *)
   let relax_specific_op _ = assert false
-end)
+end
+
+module BR = Branch_relaxation.Make (Size)
 
 (* Assembly code for inlined allocation *)
 
@@ -1221,20 +1223,9 @@ let fundecl fundecl =
   let max_frame_size =
     frame_size env + fundecl.fun_extra_stack_used
     + (if fundecl.fun_extra_stack_used > 0 then reserved_stack_space else 0) in
-  let handle_overflow = ref None in
-  if fundecl.fun_contains_nontail_calls
-  || max_frame_size >= stack_threshold_size then begin
-    let overflow = new_label () and ret = new_label () in
-    (* The return address is saved in a register not used for param passing *)
-    (* The size is passed in a register normally not used for param passing *)
-    `{emit_label overflow}:	mflr	28\n`;
-    emit_li 27 (Config.stack_threshold + max_frame_size / 8);
-    emit_call "caml_call_realloc_stack";
-    emit_call_nop ();
-    `	mtlr	28\n`;
-    `	b	{emit_label ret}\n`;
-    handle_overflow := Some(overflow, ret)
-  end;
+  let need_stack_check =
+    fundecl.fun_contains_nontail_calls
+    || max_frame_size >= stack_threshold_size in
   (* Function entry point *)
   `	.globl	{emit_symbol fundecl.fun_name}\n`;
   emit_type_directive fundecl.fun_name "@function";
@@ -1244,10 +1235,16 @@ let fundecl fundecl =
   `	addi	2, 2, (.TOC. - 0b)@l\n`;
   `	.localentry {emit_symbol fundecl.fun_name}, . - 0b\n`;
   emit_debug_info fundecl.fun_dbg;
-  (* Dynamic stack checking *)
-  begin match !handle_overflow with
-  | None -> ()
-  | Some(overflow, ret) ->
+  let max_out_of_line_code_offset = max_out_of_line_code_offset fundecl in
+  BR.relax fundecl ~max_out_of_line_code_offset;
+  (* Dynamic stack checking.  The stack reallocation code is emitted
+     after the function body, inside the function's FDE, so that its
+     unwind info can be given.  It is reached by a conditional branch
+     from the function entry, which may be out of range in large
+     functions. *)
+  let handle_overflow =
+    if need_stack_check then begin
+      let overflow = new_label () and ret = new_label () in
       let threshold_offset =
         Domainstate.stack_ctx_words * 8 + stack_threshold_size in
       let f = max_frame_size + threshold_offset in
@@ -1255,11 +1252,26 @@ let fundecl fundecl =
       `	ld	11, {emit_int offset}(30)\n`;
       emit_addi_inplace 11 f;
       `	cmpld	1, 11\n`;
-      `	ble-	{emit_label overflow}\n`;
-      `{emit_label ret}:\n`
-  end;
-  BR.relax fundecl
-           ~max_out_of_line_code_offset: (max_out_of_line_code_offset fundecl);
+      let rec body_size acc i =
+        match i.desc with
+        | Lend -> acc
+        | d -> body_size (acc + Size.instr_size fundecl d) i.next in
+      (* Distance from the branch to [overflow], in instructions: the
+         body, the call GC and bound error code (at most 5 instructions
+         past [max_out_of_line_code_offset]) and the same slack as
+         [Branch_relaxation]. *)
+      let distance =
+        body_size 0 fundecl.fun_body + max_out_of_line_code_offset + 5 + 12 in
+      if distance < Size.Cond_branch.(max_displacement Branch) then
+        `	ble-	{emit_label overflow}\n`
+      else begin
+        `	bgt+	{emit_label ret}\n`;
+        `	b	{emit_label overflow}\n`
+      end;
+      `{emit_label ret}:\n`;
+      Some (overflow, ret)
+    end else
+      None in
   emit_all env fundecl.fun_body;
   (* Emit the glue code to call the GC *)
   if env.call_gc_label > 0 then begin
@@ -1272,6 +1284,32 @@ let fundecl fundecl =
   end;
   (* Emit the glue code to handle bound errors *)
   emit_call_bound_errors env;
+  begin match handle_overflow with
+  | None -> ()
+  | Some (overflow, ret) ->
+      `{emit_label overflow}:\n`;
+      (* This block is reached from the stack check at the function
+         entry, before the frame is allocated, so the CFA and the saved
+         registers are as at entry, not as at the end of the body. *)
+      cfi_remember_state ();
+      cfi_def_cfa_offset 0;
+      if fundecl.fun_frame_required then begin
+        cfi_restore ~reg:65 (* LR *);
+        if fp then cfi_restore ~reg:31 (* FP *)
+      end;
+      (* The return address is saved in a register not used for param
+         passing.  The size is passed in a register normally not used
+         for param passing. *)
+      `	mflr	28\n`;
+      cfi_register ~reg:65 (* LR *) ~in_reg:28;
+      emit_li 27 (Config.stack_threshold + max_frame_size / 8);
+      emit_call "caml_call_realloc_stack";
+      emit_call_nop ();
+      `	mtlr	28\n`;
+      cfi_restore ~reg:65 (* LR *);
+      `	b	{emit_label ret}\n`;
+      cfi_restore_state ()
+  end;
   cfi_endproc();
   emit_size_directive fundecl.fun_name;
   (* Emit the numeric literals *)
