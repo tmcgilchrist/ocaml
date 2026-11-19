@@ -71,6 +71,26 @@
     # Fix indentation: Xcode 27 on macOS adds two extra spaces here
     gsub(/^      frame #/, "    frame #");
 
+    # gdb prints the pc when the breakpoint is not at the start of a line,
+    # which depends on how the C compiler scheduled the prologue TODO Tidy this up later
+    if ($0 ~ /^Breakpoint [0-9]+, 0x0+ in caml_try_realloc_stack /)
+      sub(/0x0+ in /, "")
+
+    # Drop the runtime source listing at caml_try_realloc_stack
+    gsub(/required_space=[0-9]+/, "required_space=XX")
+    gsub(/^warning: .*: source file checksum mismatch .*/, "")
+    if (in_listing == "lldb") {
+      if ($0 ~ /^(Target 0:|\(lldb\))/) in_listing = ""; else next
+    } else if (in_listing == "gdb") {
+      in_listing = ""
+      if ($0 ~ /^(warning: )?[0-9]+\t/) next
+    }
+    if ($0 ~ /caml_try_realloc_stack.* at .*fiber\.c/)
+      in_listing = ($0 ~ /^Breakpoint/) ? "gdb" : "lldb"
+
+    # The recursion depth depends on the frame size
+    if ($0 ~ /^frame X: .*camlMeander[.$]recurse$/ && $0 == prevline)
+      next
 
     if ($0 != "") {
       prevline = $0

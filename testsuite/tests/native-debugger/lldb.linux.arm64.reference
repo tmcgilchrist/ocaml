@@ -17,6 +17,8 @@ Breakpoint created for regex ^ocaml_to_c$.
 Breakpoint created for regex camlMeander[.$]on_fiber*.
 (lldb) create camlMeander[.$]on_perform*
 Breakpoint created for regex camlMeander[.$]on_perform*.
+(lldb) create ^caml_try_realloc_stack$
+Breakpoint created for regex ^caml_try_realloc_stack$.
 (lldb) run
 Process XXXX launched: 'XXXX' (aarch64)
 Process XXXX stopped
@@ -80,7 +82,7 @@ frame X: meander`_start
 Process XXXX resuming
 Process XXXX stopped
 * thread #1, name = 'XXXX', stop reason = breakpoint 3.1
-    frame #0: 0x00000000000000 meander`camlStd_exit.code_end at meander.ml:9
+    frame #0: 0x00000000000000 meander`camlMeander.c_to_ocaml at meander.ml:9
    6   	         : unit -> int = "ocaml_to_c"
    7   	exception E1
    8   	exception E2
@@ -89,7 +91,7 @@ Process XXXX stopped
    11  	          "c_to_ocaml" c_to_ocaml
    12  	let omain () =
 (lldb) backtrace
-frame X: meander`camlStd_exit.code_end
+frame X: meander`camlMeander.c_to_ocaml
 frame X: meander`caml_start_program
 frame X: meander`caml_callback_exn
 frame X: meander`caml_callback
@@ -147,6 +149,27 @@ Process XXXX stopped
    38  	  Effect.perform Yield;
 (lldb) backtrace
 frame X: meander`camlMeander.on_perform
+frame X: meander`caml_runstack
+frame X: meander`camlMeander.entry
+frame X: meander`caml_program
+frame X: meander`caml_start_program
+frame X: meander`caml_startup_common
+frame X: meander`caml_startup_common
+frame X: meander`caml_startup
+frame X: meander`caml_main
+frame X: meander`main
+frame X: libc.so.6`__libc_start_call_main
+frame X: libc.so.6`__libc_start_mainXXXX
+frame X: meander`_start
+(lldb) continue
+Process XXXX resuming
+Process XXXX stopped
+* thread #1, name = 'XXXX', stop reason = breakpoint 7.1
+    frame #0: 0x00000000000000 meander`caml_try_realloc_stack(required_space=XX) at fiber.c:XX
+(lldb) backtrace
+frame X: meander`caml_try_realloc_stack
+frame X: meander`caml_call_realloc_stack
+frame X: meander`camlMeander.recurse
 frame X: meander`caml_runstack
 frame X: meander`camlMeander.entry
 frame X: meander`caml_program

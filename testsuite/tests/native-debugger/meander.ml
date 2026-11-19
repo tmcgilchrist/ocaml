@@ -62,3 +62,15 @@ let () = assert (ocaml_to_c_many 1 2 3 4 5 6 7 8 9 10 11 12 = 78)
 external ocaml_to_c_noalloc : unit -> int = "ocaml_to_c_noalloc" [@@noalloc]
 
 let () = assert (ocaml_to_c_noalloc () = 7)
+
+(* Test caml_call_realloc_stack: recursion on a new fiber's small stack *)
+let[@inline never] rec recurse n =
+  if n = 0 then 0 else 1 + recurse (Sys.opaque_identity (n - 1))
+
+let () =
+  let result = match_with recurse 100
+    { retc = Fun.id;
+      exnc = raise;
+      effc = (fun _ -> None) }
+  in
+  assert (result = 100)

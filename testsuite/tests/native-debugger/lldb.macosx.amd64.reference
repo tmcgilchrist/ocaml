@@ -17,6 +17,8 @@ Breakpoint created for regex ^ocaml_to_c$.
 Breakpoint created for regex camlMeander[.$]on_fiber*.
 (lldb) create camlMeander[.$]on_perform*
 Breakpoint created for regex camlMeander[.$]on_perform*.
+(lldb) create ^caml_try_realloc_stack$
+Breakpoint created for regex ^caml_try_realloc_stack$.
 (lldb) run
 Process XXXX launched: 'XXXX' ($ARCH)
 Process XXXX stopped
@@ -117,6 +119,26 @@ Process XXXX stopped
 Target 0: (meander) stopped.
 (lldb) backtrace
 frame X: meander`camlMeander$on_perform
+frame X: meander`caml_runstack
+frame X: meander`camlMeander$entry
+frame X: meander`caml_program
+frame X: meander`caml_start_program
+frame X: meander`caml_startup_common
+frame X: meander`caml_startup
+frame X: meander`caml_main
+frame X: meander`main
+frame X: dyld`start
+(lldb) continue
+Process XXXX resuming
+Process XXXX stopped
+* thread #1, queue = 'XXXX', stop reason = breakpoint 7.1
+    frame #0: 0x00000000000000 meander`caml_try_realloc_stack(required_space=XX) at fiber.c:XX [opt]
+Target 0: (meander) stopped.
+(lldb) backtrace
+warning: meander was compiled with optimization - stepping may behave oddly;
+frame X: meander`caml_try_realloc_stack
+frame X: meander`caml_call_realloc_stack
+frame X: meander`camlMeander$recurse
 frame X: meander`caml_runstack
 frame X: meander`camlMeander$entry
 frame X: meander`caml_program

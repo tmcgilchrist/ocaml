@@ -6,6 +6,7 @@ Breakpoint 5 at 0x00000000000000: file meander.ml, line XXX.
 Breakpoint 6 at 0x00000000000000: file meander.ml, line XXX.
 Breakpoint 7 at 0x00000000000000: file meander_c.c, line XXX.
 Breakpoint 8 at 0x00000000000000: file meander_c.c, line XXX.
+Breakpoint 9 at 0x00000000000000: file runtime/fiber.c, line XXX.
 Breakpoint 1, <signal handler called>
 frame X: caml_start_program
 frame X: caml_startup_common
@@ -91,4 +92,17 @@ Breakpoint 8, ocaml_to_c_noalloc (unit=1) at meander_c.c:XX
 32	    return Val_long(7);
 frame X: ocaml_to_c_noalloc
 frame X: camlMeander.entry
+Breakpoint 9, caml_try_realloc_stack (required_space=XX) at runtime/fiber.c:XX
+frame X: caml_try_realloc_stack
+frame X: caml_call_realloc_stack
+frame X: camlMeander.recurse
+frame X: caml_runstack
+frame X: camlMeander.entry
+frame X: caml_program
+frame X: caml_start_program
+frame X: caml_startup_common
+frame X: caml_startup_common
+frame X: caml_startup
+frame X: caml_main
+frame X: main
 [Inferior 1 (process XXXX) exited normally]
